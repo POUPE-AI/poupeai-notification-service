@@ -13,7 +13,7 @@ poupeai-notification-service
 │   │   ├── __init__.py
 │   │   ├── models.py      # Modelos do banco de dados
 │   │   ├── router.py      # Endpoints
-│   │   ├── schemas.py     # Modelosp ydantic
+│   │   ├── schemas.py     # Modelos pydantic
 │   │   ├── config.py      # Configurações locais
 │   │   └── service.py     # Regras de négocio
 │   │

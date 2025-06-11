@@ -13,7 +13,7 @@ poupeai-notification-service
 │   │   ├── __init__.py
 │   │   ├── models.py      # Modelos do banco de dados
 │   │   ├── router.py      # Endpoints
-│   │   ├── schemas.py     # Modelosp ydantic
+│   │   ├── schemas.py     # Modelos pydantic
 │   │   ├── config.py      # Configurações locais
 │   │   └── service.py     # Regras de négocio
 │   │
@@ -37,7 +37,18 @@ pip install -r requirements\base.txt
 ### 2. Executar o serviço
 
 ```bash
-uvicorn src.main:app --reload
+cd src
+python main.py
+```
+
+O serviço será iniciado usando as configurações definidas em `config.py`:
+- Host: localhost
+- Porta: 8001
+
+Também é possível executar usando o uvicorn diretamente especificando a porta
+
+```bash
+uvicorn main:app --reload --port 8001
 ```
 
 ### Health Check
@@ -45,4 +56,4 @@ uvicorn src.main:app --reload
 
 ## Documentação
 
-- Swagger: http://localhost:8000/api/v1/docs
+- Swagger: http://localhost:8001/api/v1/docs

@@ -1,6 +1,7 @@
 from fastapi import FastAPI
-from .config import settings
+from config import settings
 from datetime import datetime
+import uvicorn
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -22,4 +23,12 @@ def create_app() -> FastAPI:
     return app
 
 
-app = create_app() 
+app = create_app()
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=settings.debug,
+    ) 

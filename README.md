@@ -66,6 +66,33 @@ Também é possível executar usando o uvicorn diretamente especificando a porta
 uvicorn main:app --reload --port 8001
 ```
 
+## Executando com Docker
+
+Para executar a aplicação em um ambiente containerizado com Docker, siga os passos abaixo.
+
+### 1. Pré-requisitos
+
+- Docker instalado e em execução.
+- O arquivo `.env` deve estar criado e configurado na raiz do projeto (veja a seção "Configurar Variáveis de Ambiente").
+
+### 2. Construir a Imagem
+
+Na raiz do projeto, execute o comando a seguir para construir a imagem Docker:
+
+```bash
+docker build -t poupeai-notification-service .
+```
+
+### 3. Executar o Contêiner
+
+Após a construção da imagem, execute o contêiner com o comando:
+
+```bash
+docker run -d --name notification-service -p 8001:8001 --env-file .env poupeai-notification-service
+```
+
+O serviço estará disponível no endereço `http://localhost:8001`.
+
 ### Health Check
 - **GET** `/api/v1/health` - Verificar status
 

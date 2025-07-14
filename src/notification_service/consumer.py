@@ -63,12 +63,29 @@ class RabbitMQConsumer:
 
 
     async def _on_message(self, message: AbstractIncomingMessage):
-        print("Método _on_message chamado (ainda não implementado).")
-        pass
+        async with message.process():
+            correlation_id = message.correlation_id
+            body = message.body.decode()
+
+            print(
+                f"[AUDIT] "
+                f"event_type='MESSAGE_RECEIVED' "
+                f"correlation_id='{correlation_id}' "
+                f"message_body='{body}'"
+            )
+
+            print(f"Processando mensagem (correlation_id: {correlation_id})...")
 
     async def run(self):
         await self.connect()
         await self._setup_queues()
-        
-        print("Consumidor pronto para receber mensagens (implementação pendente).")
-        await asyncio.Future()
+    
+        print("Consumidor pronto e aguardando por mensagens...")
+        await self.main_queue.consume(self._on_message)
+    
+        try:
+            await asyncio.Future()
+        finally:
+            if self._connection:
+                await self._connection.close()
+                print("Conexão com o RabbitMQ fechada.")

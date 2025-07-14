@@ -22,19 +22,34 @@ poupeai-notification-service
 │   ├── database.py        # Conexão com o banco de dados
 │   └── main.py            
 │
+├── .env.template
 ├── .gitignore
 └──  README.md
 ```
 
 ## Instalação e Execução
 
-### 1. Instalar dependências
+Siga os passos abaixo para configurar e executar o projeto localmente.
+
+### 1. Configurar Variáveis de Ambiente
+
+As configurações da aplicação, como conexões com bancos de dados e serviços externos (RabbitMQ, Redis, etc.), são carregadas a partir de variáveis de ambiente.
+
+Copie o arquivo de template `.env.template` para criar seu próprio arquivo de configuração local `.env`.
+
+```bash
+cp .env.template .env
+```
+
+Após copiar, **abra o arquivo `.env`** e preencha os valores para cada variável com as suas credenciais e configurações de ambiente.
+
+### 2. Instalar dependências
 
 ```bash
 pip install -r requirements\base.txt
 ```
 
-### 2. Executar o serviço
+### 3. Executar o serviço
 
 ```bash
 cd src

@@ -66,32 +66,55 @@ Também é possível executar usando o uvicorn diretamente especificando a porta
 uvicorn main:app --reload --port 8001
 ```
 
-## Executando com Docker
+## Ambiente de Desenvolvimento com Docker Compose
 
-Para executar a aplicação em um ambiente containerizado com Docker, siga os passos abaixo.
+O método recomendado para executar o projeto localmente é usando Docker Compose. Ele irá configurar a aplicação, o RabbitMQ e o Redis automaticamente.
 
 ### 1. Pré-requisitos
 
-- Docker instalado e em execução.
-- O arquivo `.env` deve estar criado e configurado na raiz do projeto (veja a seção "Configurar Variáveis de Ambiente").
-
-### 2. Construir a Imagem
-
-Na raiz do projeto, execute o comando a seguir para construir a imagem Docker:
+- Docker e Docker Compose instalados.
+- Crie um arquivo `.env` a partir do template `.env.template` e preencha as variáveis, se necessário.
 
 ```bash
-docker build -t poupeai-notification-service .
+cp .env.template .env
 ```
 
-### 3. Executar o Contêiner
+### 2 Iniciar o Ambiente
 
-Após a construção da imagem, execute o contêiner com o comando:
+Na raiz do projeto, execute o seguinte comando para construir as imagens e iniciar os contêineres:
 
 ```bash
-docker run -d --name notification-service -p 8001:8001 --env-file .env poupeai-notification-service
+docker-compose up --build -d
 ```
 
-O serviço estará disponível no endereço `http://localhost:8001`.
+### 3 Verificar os Serviços
+
+Após a execução, os seguintes serviços estarão disponíveis:
+
+  - **API do Serviço de Notificação**: `http://localhost:8001`
+      - **Swagger UI**: `http://localhost:8001/api/v1/docs`
+  - **Interface de Gerenciamento do RabbitMQ**: `http://localhost:15672`
+      - Use as credenciais `RABBITMQ_USER` e `RABBITMQ_PASSWORD` definidas no seu arquivo `.env`.
+
+Para visualizar os logs da aplicação em tempo real, use:
+
+```bash
+docker-compose logs -f app
+```
+
+### 4 Parar o Ambiente
+
+Para parar todos os contêineres, execute:
+
+```bash
+docker-compose down
+```
+
+Se desejar remover também os volumes de dados (todas as mensagens e dados do Redis serão perdidos), execute:
+
+```bash
+docker-compose down -v
+```
 
 ### Health Check
 - **GET** `/api/v1/health` - Verificar status

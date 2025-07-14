@@ -63,10 +63,10 @@ class RabbitMQConsumer:
 
 
     async def _on_message(self, message: AbstractIncomingMessage):
-        async with message.process():
-            correlation_id = message.correlation_id
-            body = message.body.decode()
+        correlation_id = message.correlation_id
+        body = message.body.decode()
 
+        async with message.process():
             print(
                 f"[AUDIT] "
                 f"event_type='MESSAGE_RECEIVED' "
@@ -74,7 +74,26 @@ class RabbitMQConsumer:
                 f"message_body='{body}'"
             )
 
-            print(f"Processando mensagem (correlation_id: {correlation_id})...")
+            try:
+                print(f"Processando mensagem (correlation_id: {correlation_id})...")
+            
+                if "error" in body:
+                    raise ValueError("Simulação de falha no envio de e-mail")
+
+                print(
+                    f"[AUDIT] "
+                    f"event_type='PROCESSING_SUCCESSFUL' "
+                    f"correlation_id='{correlation_id}'"
+                )
+
+            except Exception as e:
+                print(
+                    f"[AUDIT] "
+                    f"event_type='PROCESSING_FAILED' "
+                    f"correlation_id='{correlation_id}' "
+                    f"error='{e}'"
+                )
+                raise
 
     async def run(self):
         await self.connect()

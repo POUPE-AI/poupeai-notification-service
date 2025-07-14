@@ -13,6 +13,8 @@ services:
       - redis
     networks:
       - poupeai-network
+    environment:
+      - PYTHONUNBUFFERED=1
 
   rabbitmq:
     image: rabbitmq:3-management

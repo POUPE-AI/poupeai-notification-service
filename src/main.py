@@ -2,6 +2,19 @@ from fastapi import FastAPI
 from config import settings
 import uvicorn
 from notification_service.router import router as notification_router
+from notification_service.consumer import RabbitMQConsumer
+import asyncio
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    consumer = RabbitMQConsumer()
+    consumer_task = asyncio.create_task(consumer.run())
+    print("Tarefa do consumidor iniciada em segundo plano.")
+    yield
+    print("Cancelando a tarefa do consumidor...")
+    consumer_task.cancel()
+    await consumer_task
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -9,6 +22,7 @@ def create_app() -> FastAPI:
         version=settings.API_VERSION,
         debug=settings.DEBUG,
         docs_url="/api/v1/docs",
+        lifespan=lifespan,
     )
 
     app.include_router(

@@ -119,6 +119,40 @@ docker-compose down -v
 ### Health Check
 - **GET** `/api/v1/health` - Verificar status
 
+## Estratégia de Filas (RabbitMQ)
+
+O serviço utiliza o RabbitMQ para processamento assíncrono de notificações, implementando uma estratégia robusta com Dead-Letter Queue (DLQ) para garantir a durabilidade e a observabilidade das mensagens.
+
+### Topologia
+
+1.  **Exchange Principal (`notification_exchange`)**:
+    * **Tipo:** `Direct`
+    * **Responsabilidade:** Receber todas as mensagens de notificação publicadas e roteá-las para a fila principal.
+
+2.  **Fila Principal (`notification_events`)**:
+    * **Tipo:** `Durable`
+    * **Binding:** Ligada à `notification_exchange` com a routing key `notification.event`.
+    * **Responsabilidade:** Armazenar as mensagens que aguardam processamento pelo consumidor.
+    * **Configuração DLQ:** Mensagens que falham no processamento (são rejeitadas/NACKed) são automaticamente enviadas para a Dead-Letter Exchange.
+
+3.  **Dead-Letter Exchange (DLX) (`notification_exchange.dlq`)**:
+    * **Tipo:** `Direct`
+    * **Responsabilidade:** Receber mensagens rejeitadas da fila principal e roteá-las para a fila de dead-letter.
+
+4.  **Fila de Dead-Letter (DLQ) (`notification_events.dlq`)**:
+    * **Tipo:** `Durable`
+    * **Binding:** Ligada à `notification_exchange.dlq` com a routing key `notification.event`.
+    * **Responsabilidade:** Armazenar permanentemente as mensagens que não puderam ser processadas, permitindo análise de falhas e reprocessamento manual, se necessário.
+
+### Fluxo da Mensagem
+
+1.  Um produtor envia uma mensagem para a `notification_exchange`.
+2.  A exchange roteia a mensagem para a fila `notification_events`.
+3.  O consumidor (`RabbitMQConsumer`) pega a mensagem da fila.
+    * **Caminho Feliz:** A mensagem é processada com sucesso e confirmada (`ACK`), sendo removida da fila.
+    * **Caminho de Erro:** Ocorre uma exceção durante o processamento. A mensagem é rejeitada (`NACK`) e, devido à configuração da fila, o RabbitMQ a move para a `notification_exchange.dlq`.
+4.  A DLX roteia a mensagem para a `notification_events.dlq`, onde ela fica armazenada para análise.
+
 ## Documentação
 
 - Swagger: http://localhost:8001/api/v1/docs

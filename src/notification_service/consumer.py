@@ -2,13 +2,16 @@ import asyncio
 import aio_pika
 from aio_pika.abc import AbstractIncomingMessage
 from config import settings
+import json
+from .service import EventHandler
 
 class RabbitMQConsumer:
     def __init__(self):
         self.rabbitmq_url = settings.RABBITMQ_URL
         self._connection = None
         self._channel = None
-        print("Consumidor RabbitMQ inicializado.")
+        self.event_handler = EventHandler()
+        print("Consumidor RabbitMQ e EventHandler inicializados.")
 
     async def connect(self):
         retry_interval = 5
@@ -63,36 +66,20 @@ class RabbitMQConsumer:
 
 
     async def _on_message(self, message: AbstractIncomingMessage):
-        correlation_id = message.correlation_id
-        body = message.body.decode()
-
-        async with message.process():
-            print(
-                f"[AUDIT] "
-                f"event_type='MESSAGE_RECEIVED' "
-                f"correlation_id='{correlation_id}' "
-                f"message_body='{body}'"
-            )
+        async with message.process(ignore_processed=True):
+            body = message.body.decode()
+            correlation_id = message.correlation_id
 
             try:
-                print(f"Processando mensagem (correlation_id: {correlation_id})...")
-            
-                if "error" in body:
-                    raise ValueError("Simulação de falha no envio de e-mail")
-
-                print(
-                    f"[AUDIT] "
-                    f"event_type='PROCESSING_SUCCESSFUL' "
-                    f"correlation_id='{correlation_id}'"
+                event_data = json.loads(body)
+                await self.event_handler.process_event(
+                    event_data=event_data, 
+                    correlation_id=correlation_id
                 )
-
+            except json.JSONDecodeError:
+                print(f"[DECODE_ERROR] Corpo da mensagem não é JSON. correlation_id='{correlation_id}'. Descartando.")
             except Exception as e:
-                print(
-                    f"[AUDIT] "
-                    f"event_type='PROCESSING_FAILED' "
-                    f"correlation_id='{correlation_id}' "
-                    f"error='{e}'"
-                )
+                print(f"[UNEXPECTED_ERROR] Erro no processamento. correlation_id='{correlation_id}', error='{e}'. Enviando para DLQ.")
                 raise
 
     async def run(self):

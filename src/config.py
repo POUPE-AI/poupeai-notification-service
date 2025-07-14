@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     REDIS_HOST: str
     REDIS_PORT: int
+    REDIS_PASSWORD: SecretStr
 
     EMAIL_HOST: Optional[str] = None
     EMAIL_PORT: Optional[int] = None
@@ -32,10 +33,10 @@ class Settings(BaseSettings):
     @property
     def RABBITMQ_URL(self) -> AmqpDsn:
         return f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASSWORD.get_secret_value()}@{self.RABBITMQ_HOST}:{self.RABBITMQ_PORT}/"
-
+    
     @property
     def REDIS_URL(self) -> RedisDsn:
-        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
-
+        password = self.REDIS_PASSWORD.get_secret_value()
+        return f"redis://:{password}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
 settings = Settings()

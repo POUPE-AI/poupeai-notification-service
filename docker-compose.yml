@@ -39,6 +39,10 @@ services:
       - redis_data:/data
     networks:
       - poupeai-network
+    command:
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD}
 
 networks:
   poupeai-network:

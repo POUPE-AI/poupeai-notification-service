@@ -66,6 +66,56 @@ Também é possível executar usando o uvicorn diretamente especificando a porta
 uvicorn main:app --reload --port 8001
 ```
 
+## Ambiente de Desenvolvimento com Docker Compose
+
+O método recomendado para executar o projeto localmente é usando Docker Compose. Ele irá configurar a aplicação, o RabbitMQ e o Redis automaticamente.
+
+### 1. Pré-requisitos
+
+- Docker e Docker Compose instalados.
+- Crie um arquivo `.env` a partir do template `.env.template` e preencha as variáveis, se necessário.
+
+```bash
+cp .env.template .env
+```
+
+### 2 Iniciar o Ambiente
+
+Na raiz do projeto, execute o seguinte comando para construir as imagens e iniciar os contêineres:
+
+```bash
+docker-compose up --build -d
+```
+
+### 3 Verificar os Serviços
+
+Após a execução, os seguintes serviços estarão disponíveis:
+
+  - **API do Serviço de Notificação**: `http://localhost:8001`
+      - **Swagger UI**: `http://localhost:8001/api/v1/docs`
+  - **Interface de Gerenciamento do RabbitMQ**: `http://localhost:15672`
+      - Use as credenciais `RABBITMQ_USER` e `RABBITMQ_PASSWORD` definidas no seu arquivo `.env`.
+
+Para visualizar os logs da aplicação em tempo real, use:
+
+```bash
+docker-compose logs -f app
+```
+
+### 4 Parar o Ambiente
+
+Para parar todos os contêineres, execute:
+
+```bash
+docker-compose down
+```
+
+Se desejar remover também os volumes de dados (todas as mensagens e dados do Redis serão perdidos), execute:
+
+```bash
+docker-compose down -v
+```
+
 ### Health Check
 - **GET** `/api/v1/health` - Verificar status
 

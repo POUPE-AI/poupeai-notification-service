@@ -29,6 +29,15 @@ class EventHandler:
 
         print(f"[EVENT_ROUTING] Evento validado. message_id='{event.message_id}', correlation_id='{correlation_id}'")
 
+        message_id = str(event.message_id)
+        idempotency_key = f"idempotency:{message_id}"
+
+        was_set = await self.redis_client.set(idempotency_key, 1, nx=True, ex=86400)
+
+        if not was_set:
+            print(f"MENSAGEM DUPLICADA DETECTADA. Descartando. message_id='{message_id}'")
+            return
+
         handler = self.event_router.get(event.event_type)
         if handler:
             handler(event, correlation_id)

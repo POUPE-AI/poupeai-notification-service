@@ -6,11 +6,11 @@ import json
 from .service import EventHandler
 
 class RabbitMQConsumer:
-    def __init__(self):
+    def __init__(self, redis_client):
         self.rabbitmq_url = settings.RABBITMQ_URL
         self._connection = None
         self._channel = None
-        self.event_handler = EventHandler()
+        self.event_handler = EventHandler(redis_client)
         print("Consumidor RabbitMQ e EventHandler inicializados.")
 
     async def connect(self):

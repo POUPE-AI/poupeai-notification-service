@@ -14,7 +14,7 @@ async def lifespan(app: FastAPI):
     await redis_conn.ping()
     print("Conexão com Redis verificada com sucesso.")
 
-    consumer = RabbitMQConsumer()
+    consumer = RabbitMQConsumer(redis_client=redis_conn)
     consumer_task = asyncio.create_task(consumer.run())
     print("Tarefa do consumidor iniciada em segundo plano.")
     yield

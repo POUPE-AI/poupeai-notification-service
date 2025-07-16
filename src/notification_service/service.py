@@ -1,9 +1,15 @@
-from .schemas import NotificationEventEnvelope
+import asyncio
+
 from pydantic import ValidationError
 from typing import Optional
 
+from .exceptions import EventTypeValidationError, SchemaValidationError, TransientProcessingError
+from .schemas import NotificationEventEnvelope
+
 class EventHandler:
-    def __init__(self, redis_client=None):
+    def __init__(self, redis_client):
+        if not redis_client:
+            raise ValueError("O cliente Redis é obrigatório para o EventHandler.")
         self.redis_client = redis_client
         self.event_router = {
             "INVOICE_DUE_SOON": self._handle_invoice_due_soon,
@@ -11,35 +17,44 @@ class EventHandler:
             "PROFILE_DEACTIVATION_SCHEDULED": self._handle_profile_deactivation,
         }
 
-    def _handle_invoice_due_soon(self, event: NotificationEventEnvelope, correlation_id: str):
-        print(f"[HANDLER] Tratando 'INVOICE_DUE_SOON' para {event.recipient.name}. correlation_id='{correlation_id}'")
+    async def _handle_invoice_due_soon(self, event: NotificationEventEnvelope, correlation_id: str, retry_count: int):
+        print(f"[HANDLER] Iniciando processamento para 'INVOICE_DUE_SOON' (correlation_id: {correlation_id})")
+        await asyncio.sleep(1)
 
-    def _handle_invoice_overdue(self, event: NotificationEventEnvelope, correlation_id: str):
+        # Simulação de falha nas duas primeiras tentativas (retry_count 0 e 1) e sucesso na terceira.
+        if retry_count < 2:
+            raise TransientProcessingError(f"Falha simulada na tentativa #{retry_count + 1}.")
+
+        print(f"[HANDLER] 'INVOICE_DUE_SOON' para {event.recipient.name} processado com sucesso na tentativa #{retry_count + 1}.")
+
+    async def _handle_invoice_overdue(self, event: NotificationEventEnvelope, correlation_id: str, retry_count: int):
         print(f"[HANDLER] Tratando 'INVOICE_OVERDUE' para {event.recipient.name}. correlation_id='{correlation_id}'")
 
-    def _handle_profile_deactivation(self, event: NotificationEventEnvelope, correlation_id: str):
+    async def _handle_profile_deactivation(self, event: NotificationEventEnvelope, correlation_id: str, retry_count: int):
         print(f"[HANDLER] Tratando 'PROFILE_DEACTIVATION_SCHEDULED' para {event.recipient.name}. correlation_id='{correlation_id}'")
 
-    async def process_event(self, event_data: dict, correlation_id: Optional[str] = None):
+    async def process_event(self, event_data: dict, correlation_id: Optional[str] = None, retry_count: int = 0) -> bool:
         try:
             event = NotificationEventEnvelope.model_validate(event_data)
         except ValidationError as e:
-            print(f"[VALIDATION_ERROR] Schema inválido. correlation_id='{correlation_id}', error='{e}'")
-            return
-
-        print(f"[EVENT_ROUTING] Evento validado. message_id='{event.message_id}', correlation_id='{correlation_id}'")
+            raise SchemaValidationError(f"Schema inválido: {e}")
 
         message_id = str(event.message_id)
         idempotency_key = f"idempotency:{message_id}"
 
-        was_set = await self.redis_client.set(idempotency_key, 1, nx=True, ex=86400)
+        if await self.redis_client.exists(idempotency_key):
+            print(f"[IDEMPOTENCY_CHECK] MENSAGEM DUPLICADA de um sucesso anterior. Descartando. message_id='{message_id}', correlation_id='{correlation_id}'")
+            return False
 
-        if not was_set:
-            print(f"MENSAGEM DUPLICADA DETECTADA. Descartando. message_id='{message_id}'")
-            return
+        print(f"[EVENT_ROUTING] Evento novo. Tentando processar. message_id='{message_id}', correlation_id='{correlation_id}'")
 
         handler = self.event_router.get(event.event_type)
-        if handler:
-            handler(event, correlation_id)
-        else:
-            print(f"[HANDLER_NOT_FOUND] Nenhum handler para o event_type '{event.event_type}'. correlation_id='{correlation_id}'")
+        if not handler:
+            raise EventTypeValidationError(event.event_type, "Handler não encontrado para o tipo de evento")
+
+        await handler(event, correlation_id, retry_count)
+
+        await self.redis_client.set(idempotency_key, "processed", ex=86400)
+        print(f"[IDEMPOTENCY_CHECK] Mensagem marcada como processada no Redis. message_id='{message_id}'")
+
+        return True

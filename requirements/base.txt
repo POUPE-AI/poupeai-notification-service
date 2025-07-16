@@ -1,5 +1,7 @@
 fastapi>=0.115.12
 uvicorn[standard]>=0.34.3
 pydantic>=2.11.5
+pydantic[email]
 pydantic-settings>=2.9.1
+redis[hiredis]
 aio-pika>=0.10.1

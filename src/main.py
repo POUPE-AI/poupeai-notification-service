@@ -5,16 +5,23 @@ from notification_service.router import router as notification_router
 from notification_service.consumer import RabbitMQConsumer
 import asyncio
 from contextlib import asynccontextmanager
+from database import init_redis_pool, close_redis_pool, get_redis_client
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    consumer = RabbitMQConsumer()
+    await init_redis_pool()
+    redis_conn = await get_redis_client()
+    await redis_conn.ping()
+    print("Conexão com Redis verificada com sucesso.")
+
+    consumer = RabbitMQConsumer(redis_client=redis_conn)
     consumer_task = asyncio.create_task(consumer.run())
     print("Tarefa do consumidor iniciada em segundo plano.")
     yield
     print("Cancelando a tarefa do consumidor...")
     consumer_task.cancel()
     await consumer_task
+    await close_redis_pool()
 
 def create_app() -> FastAPI:
     app = FastAPI(

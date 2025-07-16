@@ -12,3 +12,7 @@ class EventTypeValidationError(Exception):
 class TransientProcessingError(Exception):
     """Error for processing failures that can be retried."""
     pass
+
+class TemplateRenderingError(Exception):
+    """Error for template rendering failures that should not be retried."""
+    pass

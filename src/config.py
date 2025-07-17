@@ -37,11 +37,13 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: SecretStr
 
     # Email
-    EMAIL_HOST: Optional[str] = None
-    EMAIL_PORT: Optional[int] = None
-    EMAIL_LOGIN: Optional[str] = None
-    EMAIL_PASSWORD: Optional[SecretStr] = None
-    EMAIL_FROM: Optional[str] = None
+    MAIL_USERNAME: Optional[str] = None
+    MAIL_PASSWORD: Optional[SecretStr] = None
+    MAIL_FROM: Optional[str] = None
+    MAIL_PORT: Optional[int] = None
+    MAIL_SERVER: Optional[str] = None
+    MAIL_STARTTLS: bool = True
+    MAIL_SSL_TLS: bool = False
 
     @property
     def EMAIL_FROM_NAME(self) -> str:

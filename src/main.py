@@ -18,13 +18,8 @@ async def lifespan(app: FastAPI):
     await redis_conn.ping()
     print("Conexão com Redis verificada com sucesso.")
 
-    template_manager = TemplateManager()
-    email_gateway = EmailGateway(settings)
-
     consumer = RabbitMQConsumer(
         redis_client=redis_conn,
-        email_gateway=email_gateway,
-        template_manager=template_manager
     )
     consumer_task = asyncio.create_task(consumer.run())
     print("Tarefa do consumidor iniciada em segundo plano.")

@@ -13,15 +13,13 @@ from .templating import TemplateManager
 class RabbitMQConsumer:
     MAX_RETRIES = settings.RABBITMQ_MAX_RETRIES
 
-    def __init__(self, redis_client, email_gateway: EmailGateway, template_manager: TemplateManager):
+    def __init__(self, redis_client):
         self.rabbitmq_url = settings.RABBITMQ_URL
         self.redis_client = redis_client
         self._connection = None
         self._channel = None
         self.event_handler = EventHandler(
             redis_client=redis_client,
-            email_gateway=email_gateway,
-            template_manager=template_manager
         )
         print("Consumidor RabbitMQ e EventHandler inicializados com todas as dependências.")
 

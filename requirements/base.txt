@@ -5,5 +5,5 @@ pydantic[email]
 pydantic-settings>=2.9.1
 redis[hiredis]
 aio-pika>=0.10.1
-aiosmtplib>=4.0.1
+fastapi-mail>=1.5.0
 Jinja2>=3.1.6

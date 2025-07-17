@@ -1,76 +1,85 @@
 import asyncio
 
 from pydantic import ValidationError
+from pathlib import Path
 from typing import Optional
 
-from .exceptions import EventTypeValidationError, SchemaValidationError, TemplateRenderingError, TransientProcessingError
-from .gateways import EmailGateway
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
+from fastapi_mail.errors import ConnectionErrors
+
+from config import settings
+from .exceptions import EventTypeValidationError, SchemaValidationError, TransientProcessingError, TemplateRenderingError
 from .schemas import NotificationEventEnvelope
-from .templating import TemplateManager
+
+conf = ConnectionConfig(
+    MAIL_USERNAME=settings.MAIL_USERNAME,
+    MAIL_PASSWORD=settings.MAIL_PASSWORD.get_secret_value() if settings.MAIL_PASSWORD else None,
+    MAIL_FROM=settings.MAIL_FROM,
+    MAIL_PORT=settings.MAIL_PORT,
+    MAIL_SERVER=settings.MAIL_SERVER,
+    MAIL_STARTTLS=settings.MAIL_STARTTLS,
+    MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
+    TEMPLATE_FOLDER=Path(__file__).parent / 'templates',
+    USE_CREDENTIALS=True,
+    VALIDATE_CERTS=False
+)
 
 class EventHandler:
-    def __init__(self, redis_client, email_gateway: EmailGateway, template_manager: TemplateManager):
+    def __init__(self, redis_client):
         if not redis_client:
             raise ValueError("O cliente Redis é obrigatório para o EventHandler.")
-        if not email_gateway:
-            raise ValueError("O EmailGateway é obrigatório para o EventHandler.")
-        if not template_manager:
-            raise ValueError("O TemplateManager é obrigatório para o EventHandler.")
-            
         self.redis_client = redis_client
-        self.email_gateway = email_gateway
-        self.template_manager = template_manager
-
         self.event_router = {
             "INVOICE_DUE_SOON": self._handle_invoice_due_soon,
             "INVOICE_OVERDUE": self._handle_invoice_overdue,
             "PROFILE_DEACTIVATION_SCHEDULED": self._handle_profile_deactivation,
         }
 
-    async def _handle_invoice_due_soon(self, event: NotificationEventEnvelope, correlation_id: str, retry_count: int):
-        print(f"[HANDLER] Iniciando envio de 'INVOICE_DUE_SOON' para {event.recipient.email} (correlation_id: {correlation_id})")
-        
-        subject = f"Lembrete Poupe.AI: Sua fatura vence em breve!"
-        template_name = "invoice_due_soon.html"
-
-        html_content = self.template_manager.render(template_name, event.model_dump())
-        
-        await self.email_gateway.send(
-            to_email=event.recipient.email,
+    async def _send_email(self, subject: str, recipient: str, template_name: str, body_context: dict):
+        message = MessageSchema(
             subject=subject,
-            html_content=html_content
+            recipients=[recipient],
+            template_body=body_context,
+            subtype=MessageType.html
         )
-        print(f"[HANDLER] E-mail 'INVOICE_DUE_SOON' enviado com sucesso para {event.recipient.email}.")
+        
+        try:
+            fm = FastMail(conf)
+            await fm.send_message(message, template_name=template_name)
+            print(f"E-mail de '{subject}' enviado com sucesso para {recipient}.")
+        except ConnectionErrors as e:
+            print(f"[EMAIL_ERROR] Falha de conexão ao enviar e-mail: {e}")
+            raise TransientProcessingError("Falha de conexão com o servidor de e-mail") from e
+        except Exception as e:
+            print(f"[EMAIL_ERROR] Erro irrecuperável ao preparar e-mail: {e}")
+            raise TemplateRenderingError(f"Falha ao renderizar template {template_name}") from e
+
+    async def _handle_invoice_due_soon(self, event: NotificationEventEnvelope, correlation_id: str, retry_count: int):
+        print(f"[HANDLER] Processando 'INVOICE_DUE_SOON' para {event.recipient.email}")
+        await self._send_email(
+            subject="Lembrete Poupe.AI: Sua fatura vence em breve!",
+            recipient=event.recipient.email,
+            template_name="invoice_due_soon.html",
+            body_context=event.model_dump()
+        )
 
     async def _handle_invoice_overdue(self, event: NotificationEventEnvelope, correlation_id: str, retry_count: int):
-        print(f"[HANDLER] Iniciando envio de 'INVOICE_OVERDUE' para {event.recipient.email} (correlation_id: {correlation_id})")
-        
-        subject = f"Aviso de Fatura Vencida - Poupe.AI"
-        template_name = "invoice_overdue.html"
-
-        html_content = self.template_manager.render(template_name, event.model_dump())
-        
-        await self.email_gateway.send(
-            to_email=event.recipient.email,
-            subject=subject,
-            html_content=html_content
+        print(f"[HANDLER] Processando 'INVOICE_OVERDUE' para {event.recipient.email}")
+        await self._send_email(
+            subject="Aviso de Fatura Vencida - Poupe.AI",
+            recipient=event.recipient.email,
+            template_name="invoice_overdue.html",
+            body_context=event.model_dump()
         )
-        print(f"[HANDLER] E-mail 'INVOICE_OVERDUE' enviado com sucesso para {event.recipient.email}.")
 
     async def _handle_profile_deactivation(self, event: NotificationEventEnvelope, correlation_id: str, retry_count: int):
-        print(f"[HANDLER] Iniciando envio de 'PROFILE_DEACTIVATION_SCHEDULED' para {event.recipient.email} (correlation_id: {correlation_id})")
-
-        subject = "Confirmação de Agendamento de Desativação de Conta Poupe.AI"
-        template_name = "profile_deactivation_scheduled.html"
-
-        html_content = self.template_manager.render(template_name, event.model_dump())
-        
-        await self.email_gateway.send(
-            to_email=event.recipient.email,
-            subject=subject,
-            html_content=html_content
+        print(f"[HANDLER] Processando 'PROFILE_DEACTIVATION_SCHEDULED' para {event.recipient.email}")
+        await self._send_email(
+            subject="Confirmação de Agendamento de Desativação de Conta Poupe.AI",
+            recipient=event.recipient.email,
+            template_name="profile_deactivation_scheduled.html",
+            body_context=event.model_dump()
         )
-        print(f"[HANDLER] E-mail 'PROFILE_DEACTIVATION_SCHEDULED' enviado com sucesso para {event.recipient.email}.")
 
     async def process_event(self, event_data: dict, correlation_id: Optional[str] = None, retry_count: int = 0) -> bool:
         try:

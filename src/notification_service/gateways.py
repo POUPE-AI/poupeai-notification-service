@@ -1,7 +1,7 @@
 import aiosmtplib
 
 from email.message import EmailMessage
-from src.config import Settings
+from config import Settings
 from .exceptions import TransientProcessingError
 
 class EmailGateway:
@@ -31,7 +31,7 @@ class EmailGateway:
 
         try:
             print(f"Tentando enviar e-mail para {to_email} via {self.host}:{self.port}")
-            async with aiosmtplib.SMTP(hostname=self.host, port=self.port, use_tls=True) as smtp:
+            async with aiosmtplib.SMTP(hostname=self.host, port=self.port) as smtp:
                 await smtp.login(self.login, self.password)
                 await smtp.send_message(message)
             print(f"E-mail enviado com sucesso para {to_email}.")

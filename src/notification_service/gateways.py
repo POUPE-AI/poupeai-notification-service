@@ -2,7 +2,7 @@ import aiosmtplib
 
 from email.message import EmailMessage
 from src.config import Settings
-from notification_service.exceptions import TransientProcessingError
+from .exceptions import TransientProcessingError
 
 class EmailGateway:
     def __init__(self, settings: Settings):

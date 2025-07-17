@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Lembrete de Vencimento de Fatura</title>
+</head>
+<body>
+    <h1>Olá, {{ recipient.name }}!</h1>
+    <p>Este é um lembrete de que sua fatura <strong>{{ payload.invoice_id }}</strong> no valor de <strong>R$ {{ "%.2f"|format(payload.amount) }}</strong> está próxima do vencimento.</p>
+    <p>A data de vencimento é <strong>{{ payload.due_date }}</strong>.</p>
+    <p>Para visualizar ou registrar o pagamento da sua fatura, acesse o link abaixo:</p>
+    <p><a href="{{ payload.invoice_deep_link }}">Ver Fatura</a></p>
+    <br>
+    <p>Atenciosamente,</p>
+    <p>Equipe Poupe.AI</p>
+</body>
+</html>

@@ -3,14 +3,24 @@ import asyncio
 from pydantic import ValidationError
 from typing import Optional
 
-from .exceptions import EventTypeValidationError, SchemaValidationError, TransientProcessingError
+from .exceptions import EventTypeValidationError, SchemaValidationError, TemplateRenderingError, TransientProcessingError
+from .gateways import EmailGateway
 from .schemas import NotificationEventEnvelope
+from .templating import TemplateManager
 
 class EventHandler:
-    def __init__(self, redis_client):
+    def __init__(self, redis_client, email_gateway: EmailGateway, template_manager: TemplateManager):
         if not redis_client:
             raise ValueError("O cliente Redis é obrigatório para o EventHandler.")
+        if not email_gateway:
+            raise ValueError("O EmailGateway é obrigatório para o EventHandler.")
+        if not template_manager:
+            raise ValueError("O TemplateManager é obrigatório para o EventHandler.")
+            
         self.redis_client = redis_client
+        self.email_gateway = email_gateway
+        self.template_manager = template_manager
+        
         self.event_router = {
             "INVOICE_DUE_SOON": self._handle_invoice_due_soon,
             "INVOICE_OVERDUE": self._handle_invoice_overdue,

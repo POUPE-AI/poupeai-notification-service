@@ -1,11 +1,15 @@
-from fastapi import FastAPI
-from config import settings
-import uvicorn
-from notification_service.router import router as notification_router
-from notification_service.consumer import RabbitMQConsumer
 import asyncio
+import uvicorn
+
+from config import settings
 from contextlib import asynccontextmanager
 from database import init_redis_pool, close_redis_pool, get_redis_client
+from fastapi import FastAPI
+
+from notification_service.consumer import RabbitMQConsumer
+from notification_service.gateways import EmailGateway
+from notification_service.router import router as notification_router
+from notification_service.templating import TemplateManager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -13,6 +17,9 @@ async def lifespan(app: FastAPI):
     redis_conn = await get_redis_client()
     await redis_conn.ping()
     print("Conexão com Redis verificada com sucesso.")
+
+    template_manager = TemplateManager()
+    email_gateway = EmailGateway(settings)
 
     consumer = RabbitMQConsumer(redis_client=redis_conn)
     consumer_task = asyncio.create_task(consumer.run())

@@ -5,19 +5,25 @@ import json
 from aio_pika.abc import AbstractIncomingMessage
 from config import settings
 
-from .exceptions import EventTypeValidationError, SchemaValidationError, TransientProcessingError
+from .exceptions import EventTypeValidationError, SchemaValidationError, TemplateRenderingError, TransientProcessingError
+from .gateways import EmailGateway
 from .service import EventHandler
+from .templating import TemplateManager
 
 class RabbitMQConsumer:
     MAX_RETRIES = settings.RABBITMQ_MAX_RETRIES
 
-    def __init__(self, redis_client):
+    def __init__(self, redis_client, email_gateway: EmailGateway, template_manager: TemplateManager):
         self.rabbitmq_url = settings.RABBITMQ_URL
         self.redis_client = redis_client
         self._connection = None
         self._channel = None
-        self.event_handler = EventHandler(redis_client)
-        print("Consumidor RabbitMQ e EventHandler inicializados.")
+        self.event_handler = EventHandler(
+            redis_client=redis_client,
+            email_gateway=email_gateway,
+            template_manager=template_manager
+        )
+        print("Consumidor RabbitMQ e EventHandler inicializados com todas as dependências.")
 
     async def connect(self):
         retry_interval = 5
@@ -98,7 +104,7 @@ class RabbitMQConsumer:
         try:
             event_data = json.loads(message.body.decode())
             processed = await self.event_handler.process_event(
-                event_data, 
+                event_data,
                 correlation_id,
                 retry_count
             )
@@ -108,7 +114,7 @@ class RabbitMQConsumer:
 
             await message.ack()
 
-        except (EventTypeValidationError, SchemaValidationError, json.JSONDecodeError) as e:
+        except (EventTypeValidationError, SchemaValidationError, json.JSONDecodeError, TemplateRenderingError) as e:
             print(f"[ERRO IRRECUPERÁVEL] {e}. Enviando para DLQ. correlation_id='{correlation_id}'")
             republished_message = self._republish_message(message)
             await self.dlx_exchange.publish(republished_message, routing_key=settings.RABBITMQ_ROUTING_KEY)

@@ -77,7 +77,7 @@ class EventHandler:
         await self._send_email(
             subject="Confirmação de Agendamento de Desativação de Conta Poupe.AI",
             recipient=event.recipient.email,
-            template_name="profile_deactivation_scheduled.html",
+            template_name="profile_deletion_scheduled.html",
             body_context=event.model_dump()
         )
 

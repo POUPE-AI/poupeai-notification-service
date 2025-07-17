@@ -1,18 +1,59 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Aviso de Fatura Vencida - Poupe.AI</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body>
-    <h1>Olá, {{ recipient.name }}!</h1>
-    <p>Notamos que sua fatura do cartão {{ payload.credit_card }} referente a {{ "%02d"|format(payload.month) }}/{{ payload.year }}, no valor de R$ {{ "%.2f"|format(payload.amount) }}, está com o pagamento em atraso há {{ payload.days_overdue }} dia(s).</p>
-    <p>A data de vencimento original era {{ payload.due_date.strftime('%d/%m/%Y') }}.</p>
-    <p>Para manter sua saúde financeira em dia e a visualização dos seus gastos sempre atualizada em nossa plataforma, é fundamental que você registre o pagamento desta fatura.</p>
-    <p><strong>Se o pagamento já foi realizado, pedimos a gentileza de registrá-lo em sua conta Poupe.AI.</strong> Isso nos ajuda a manter suas informações financeiras precisas e você no controle total!</p>
-    <p>Caso precise de ajuda ou ainda não tenha efetuado o pagamento, você pode acessar a fatura diretamente através deste link:</p>
-    <p><a href="{{ payload.invoice_deep_link }}">Acessar e Registrar Pagamento da Fatura</a></p>
-    <br>
-    <p>Atenciosamente,</p>
-    <p>Equipe Poupe.AI</p>
+
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; color: #FFFFFF;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+            <td style="padding: 20px 0;">
+                <table align="center" border="0" cellpadding="0" cellspacing="0" width="600"
+                    style="border-collapse: collapse; background-color: #1E1E1E;">
+                    <tr>
+                        <td align="center" style="padding: 40px 0;">
+                            <h1 style="color: #FFFFFF; margin: 0; font-size: 36px; font-weight: bold;">Poupe.<span
+                                    style="color: #FF6D00;">AI</span></h1>
+                            <p style="color: #B3B3B3; margin: 10px 0 0; font-size: 16px;">Aviso de Pendência Financeira
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <h2 style="color: #FFFFFF; margin-top: 0;">Atenção, {{ recipient.name }}!</h2>
+                            <p style="color: #B3B3B3; line-height: 1.6;">Notamos que sua fatura do cartão {{
+                                payload.credit_card }} referente a {{ "%02d"|format(payload.month) }}/{{ payload.year
+                                }}, no valor de <strong>R$ {{ "%.2f"|format(payload.amount) }}</strong>, está vencida há
+                                <strong>{{ payload.days_overdue }} dia(s)</strong>.</p>
+                            <p style="color: #B3B3B3; line-height: 1.6;">A data de vencimento original era {{
+                                payload.due_date.strftime('%d/%m/%Y') }}.</p>
+                            <p style="color: #B3B3B3; line-height: 1.6;"><strong>Se o pagamento já foi realizado, por
+                                    favor, registre-o na plataforma</strong> para manter suas informações financeiras
+                                precisas e você no controle total!</p>
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="padding: 20px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ payload.invoice_deep_link }}"
+                                            style="background-color: #FF6D00; color: #FFFFFF; padding: 15px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Acessar
+                                            e Registrar Pagamento</a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px; text-align: center; border-top: 1px solid #333;">
+                            <p style="color: #B3B3B3; margin: 0;">Atenciosamente,</p>
+                            <p style="color: #FFFFFF; margin: 5px 0 0; font-weight: bold;">Equipe Poupe.AI</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 </body>
+
 </html>

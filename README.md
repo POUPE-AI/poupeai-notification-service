@@ -233,14 +233,14 @@ O corpo da mensagem deve ser um objeto JSON que segue a estrutura abaixo. O camp
 </details>
 
 <details>
-<summary><strong><code>PROFILE_DEACTIVATION_SCHEDULED</code> - Desativação de Perfil Agendada</strong></summary>
+<summary><strong><code>PROFILE_DELETION_SCHEDULED</code> - Exclusão de Perfil Agendada</strong></summary>
 
 ```json
 {
   "message_id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
   "timestamp": "2025-08-01T18:00:00Z",
   "trigger_type": "user_action",
-  "event_type": "PROFILE_DEACTIVATION_SCHEDULED",
+  "event_type": "PROFILE_DELETION_SCHEDULED",
   "recipient": {
     "user_id": "user-456",
     "email": "carlos.pereira@email.com",

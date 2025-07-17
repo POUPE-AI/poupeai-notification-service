@@ -27,8 +27,8 @@ class InvoiceOverduePayload(BaseModel):
     days_overdue: int
     invoice_deep_link: str
 
-class ProfileDeactivationScheduledPayload(BaseModel):
-    """Payload for PROFILE_DEACTIVATION_SCHEDULED event."""
+class ProfileDeletionScheduledPayload(BaseModel):
+    """Payload for PROFILE_DELETION_SCHEDULED event."""
     deletion_scheduled_at: datetime
     reactivate_account_deep_link: str
 
@@ -44,5 +44,5 @@ class NotificationEventEnvelope(BaseModel):
     payload: Union[
         InvoiceDueSoonPayload,
         InvoiceOverduePayload,
-        ProfileDeactivationScheduledPayload
+        ProfileDeletionScheduledPayload
     ] = Field(...)

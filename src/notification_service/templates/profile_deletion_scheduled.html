@@ -17,14 +17,16 @@
                         <td align="center" style="padding: 40px 0;">
                             <h1 style="color: #FFFFFF; margin: 0; font-size: 36px; font-weight: bold;">Poupe.<span
                                     style="color: #FF6D00;">AI</span></h1>
+                            <p style="color: #B3B3B3; margin: 10px 0 0; font-size: 16px;">Seu controle financeiro
+                                inteligente.</p>
                         </td>
                     </tr>
                     <tr>
                         <td style="padding: 20px 30px;">
-                            <h2 style="color: #FFFFFF; margin-top: 0;">Olá, {{ recipient.name }}. Sentimos sua falta!
+                            <h2 style="color: #FFFFFF; margin-top: 0;">Olá, {{ recipient.name }}. Sentiremos sua falta!
                             </h2>
                             <p style="color: #B3B3B3; line-height: 1.6;">Recebemos sua solicitação para excluir sua
-                                conta e estamos tristes em ver você partir. A exclusão está agendada para ocorrer em
+                                conta. A exclusão está agendada para ocorrer em
                                 <strong>{{ payload.deletion_scheduled_at.strftime('%d/%m/%Y às %H:%M') }}</strong>.</p>
                             <p style="color: #B3B3B3; line-height: 1.6;">Após essa data, todos os seus dados financeiros
                                 e acesso à plataforma serão permanentemente removidos.</p>

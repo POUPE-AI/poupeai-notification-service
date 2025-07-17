@@ -15,6 +15,7 @@ conf = ConnectionConfig(
     MAIL_USERNAME=settings.MAIL_USERNAME,
     MAIL_PASSWORD=settings.MAIL_PASSWORD.get_secret_value() if settings.MAIL_PASSWORD else None,
     MAIL_FROM=settings.MAIL_FROM,
+    MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
     MAIL_PORT=settings.MAIL_PORT,
     MAIL_SERVER=settings.MAIL_SERVER,
     MAIL_STARTTLS=settings.MAIL_STARTTLS,
@@ -32,7 +33,7 @@ class EventHandler:
         self.event_router = {
             "INVOICE_DUE_SOON": self._handle_invoice_due_soon,
             "INVOICE_OVERDUE": self._handle_invoice_overdue,
-            "PROFILE_DEACTIVATION_SCHEDULED": self._handle_profile_deactivation,
+            "PROFILE_DELETION_SCHEDULED": self._handle_profile_deletion,
         }
 
     async def _send_email(self, subject: str, recipient: str, template_name: str, body_context: dict):
@@ -72,8 +73,8 @@ class EventHandler:
             body_context=event.model_dump()
         )
 
-    async def _handle_profile_deactivation(self, event: NotificationEventEnvelope, correlation_id: str, retry_count: int):
-        print(f"[HANDLER] Processando 'PROFILE_DEACTIVATION_SCHEDULED' para {event.recipient.email}")
+    async def _handle_profile_deletion(self, event: NotificationEventEnvelope, correlation_id: str, retry_count: int):
+        print(f"[HANDLER] Processando 'PROFILE_DELETION_SCHEDULED' para {event.recipient.email}")
         await self._send_email(
             subject="Confirmação de Agendamento de Desativação de Conta Poupe.AI",
             recipient=event.recipient.email,

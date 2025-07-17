@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Aviso de Fatura Vencida</title>
+    <title>Aviso de Fatura Vencida - Poupe.AI</title>
 </head>
 <body>
-    <h1>Atenção, {{ recipient.name }}!</h1>
-    <p>Sua fatura <strong>{{ payload.invoice_id }}</strong> no valor de <strong>R$ {{ "%.2f"|format(payload.amount) }}</strong> está vencida há <strong>{{ payload.days_overdue }}</strong> dia(s).</p>
-    <p>A data de vencimento original era <strong>{{ payload.due_date }}</strong>.</p>
-    <p>Para evitar juros e possíveis interrupções no serviço, por favor, regularize sua situação o mais rápido possível.</p>
-    <p><a href="{{ payload.invoice_deep_link }}">Registrar Pagamento da Fatura</a></p>
+    <h1>Olá, {{ recipient.name }}!</h1>
+    <p>Notamos que sua fatura do cartão {{ payload.credit_card }} referente a {{ "%02d"|format(payload.month) }}/{{ payload.year }}, no valor de R$ {{ "%.2f"|format(payload.amount) }}, está com o pagamento em atraso há {{ payload.days_overdue }} dia(s).</p>
+    <p>A data de vencimento original era {{ payload.due_date.strftime('%d/%m/%Y') }}.</p>
+    <p>Para manter sua saúde financeira em dia e a visualização dos seus gastos sempre atualizada em nossa plataforma, é fundamental que você registre o pagamento desta fatura.</p>
+    <p><strong>Se o pagamento já foi realizado, pedimos a gentileza de registrá-lo em sua conta Poupe.AI.</strong> Isso nos ajuda a manter suas informações financeiras precisas e você no controle total!</p>
+    <p>Caso precise de ajuda ou ainda não tenha efetuado o pagamento, você pode acessar a fatura diretamente através deste link:</p>
+    <p><a href="{{ payload.invoice_deep_link }}">Acessar e Registrar Pagamento da Fatura</a></p>
     <br>
     <p>Atenciosamente,</p>
     <p>Equipe Poupe.AI</p>

@@ -192,7 +192,9 @@ O corpo da mensagem deve ser um objeto JSON que segue a estrutura abaixo. O camp
     "name": "Maria Santos"
   },
   "payload": {
-    "invoice_id": "inv-2025-07-1234",
+    "credit_card": "Cartão BB",
+    "month": 7,
+    "year": 2025,
     "due_date": "2025-07-25",
     "amount": 150.50,
     "invoice_deep_link": "poupeai://app/invoices/inv-2025-07-1234"
@@ -217,7 +219,9 @@ O corpo da mensagem deve ser um objeto JSON que segue a estrutura abaixo. O camp
     "name": "Maria Santos"
   },
   "payload": {
-    "invoice_id": "inv-2025-07-1234",
+    "credit_card": "Cartão BB",
+    "month": 7,
+    "year": 2025,
     "due_date": "2025-07-25",
     "amount": 150.50,
     "days_overdue": 1,

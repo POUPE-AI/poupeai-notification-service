@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Lembrete de Vencimento de Fatura</title>
+    <title>Sua Fatura Está Próxima do Vencimento - Poupe.AI</title>
 </head>
 <body>
     <h1>Olá, {{ recipient.name }}!</h1>
-    <p>Este é um lembrete de que sua fatura <strong>{{ payload.invoice_id }}</strong> no valor de <strong>R$ {{ "%.2f"|format(payload.amount) }}</strong> está próxima do vencimento.</p>
-    <p>A data de vencimento é <strong>{{ payload.due_date }}</strong>.</p>
-    <p>Para visualizar ou registrar o pagamento da sua fatura, acesse o link abaixo:</p>
-    <p><a href="{{ payload.invoice_deep_link }}">Ver Fatura</a></p>
+    <p>Temos um lembrete importante para você: sua fatura do cartão {{ payload.credit_card }} referente a {{ "%02d"|format(payload.month) }}/{{ payload.year }}, no valor de R$ {{ "%.2f"|format(payload.amount) }}, está com a data de vencimento se aproximando.</p>
+    <p>O vencimento está marcado para {{ payload.due_date.strftime('%d/%m/%Y') }}.</p>
+    <p>Para manter suas finanças organizadas e sua visão completa no Poupe.AI, recomendamos que você se programe para o pagamento. Se já efetuou o pagamento, não se esqueça de registrá-lo em nossa plataforma para que seus dados estejam sempre atualizados.</p>
+    <p>Acesse sua fatura ou registre o pagamento agora mesmo:</p>
+    <p><a href="{{ payload.invoice_deep_link }}">Acessar e Registrar Pagamento da Fatura</a></p>
     <br>
     <p>Atenciosamente,</p>
     <p>Equipe Poupe.AI</p>

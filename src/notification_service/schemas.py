@@ -10,14 +10,18 @@ class RecipientSchema(BaseModel):
 
 class InvoiceDueSoonPayload(BaseModel):
     """Payload for INVOICE_DUE_SOON event."""
-    invoice_id: str
+    credit_card: str
+    month: int
+    year: int
     due_date: date
     amount: float
     invoice_deep_link: str
 
 class InvoiceOverduePayload(BaseModel):
     """Payload for INVOICE_OVERDUE event."""
-    invoice_id: str
+    credit_card: str
+    month: int
+    year: int
     due_date: date
     amount: float
     days_overdue: int

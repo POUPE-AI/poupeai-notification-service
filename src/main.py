@@ -7,9 +7,7 @@ from database import init_redis_pool, close_redis_pool, get_redis_client
 from fastapi import FastAPI
 
 from notification_service.consumer import RabbitMQConsumer
-from notification_service.gateways import EmailGateway
 from notification_service.router import router as notification_router
-from notification_service.templating import TemplateManager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

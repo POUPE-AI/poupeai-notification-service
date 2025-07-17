@@ -6,9 +6,7 @@ from aio_pika.abc import AbstractIncomingMessage
 from config import settings
 
 from .exceptions import EventTypeValidationError, SchemaValidationError, TemplateRenderingError, TransientProcessingError
-from .gateways import EmailGateway
 from .service import EventHandler
-from .templating import TemplateManager
 
 class RabbitMQConsumer:
     MAX_RETRIES = settings.RABBITMQ_MAX_RETRIES

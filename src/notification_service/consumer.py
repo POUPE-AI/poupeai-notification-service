@@ -4,22 +4,18 @@ import json
 
 from aio_pika.abc import AbstractIncomingMessage
 from config import settings
-
 from .exceptions import EventTypeValidationError, SchemaValidationError, TemplateRenderingError, TransientProcessingError
 from .service import EventHandler
 
 class RabbitMQConsumer:
     MAX_RETRIES = settings.RABBITMQ_MAX_RETRIES
 
-    def __init__(self, redis_client):
+    def __init__(self, event_handler: EventHandler):
         self.rabbitmq_url = settings.RABBITMQ_URL
-        self.redis_client = redis_client
+        self.event_handler = event_handler
         self._connection = None
         self._channel = None
-        self.event_handler = EventHandler(
-            redis_client=redis_client,
-        )
-        print("Consumidor RabbitMQ e EventHandler inicializados com todas as dependências.")
+        print("Consumidor RabbitMQ inicializado.")
 
     async def connect(self):
         retry_interval = 5
@@ -29,9 +25,9 @@ class RabbitMQConsumer:
                 self._connection = await aio_pika.connect_robust(self.rabbitmq_url)
                 self._channel = await self._connection.channel()
                 print("Conexão com o RabbitMQ estabelecida com sucesso!")
-                break
+                return
             except Exception as e:
-                print(f"Falha ao conectar: {e}. Tentando novamente em {retry_interval}s...")
+                print(f"Falha ao conectar ao RabbitMQ: {e}. Tentando novamente em {retry_interval}s...")
                 await asyncio.sleep(retry_interval)
 
     async def _setup_queues(self):
@@ -57,7 +53,6 @@ class RabbitMQConsumer:
             },
         )
         await self.retry_queue.bind(self.retry_exchange, routing_key=settings.RABBITMQ_ROUTING_KEY)
-        print(f"Topologia de Retry com TTL de {retry_delay_ms}ms configurada.")
 
         self.dlx_exchange = await self._channel.declare_exchange(
             settings.RABBITMQ_EXCHANGE_DLQ, aio_pika.ExchangeType.DIRECT, durable=True
@@ -66,7 +61,6 @@ class RabbitMQConsumer:
             settings.RABBITMQ_QUEUE_DLQ, durable=True
         )
         await self.dlq_queue.bind(self.dlx_exchange, routing_key=settings.RABBITMQ_ROUTING_KEY)
-        print("Topologia de DLQ Final configurada.")
 
         self.main_exchange = await self._channel.declare_exchange(
             settings.RABBITMQ_EXCHANGE_MAIN, aio_pika.ExchangeType.DIRECT, durable=True
@@ -75,12 +69,9 @@ class RabbitMQConsumer:
             settings.RABBITMQ_QUEUE_MAIN, durable=True
         )
         await self.main_queue.bind(self.main_exchange, routing_key=settings.RABBITMQ_ROUTING_KEY)
-        print("Topologia Principal configurada.")
+        print("Topologia do RabbitMQ configurada.")
 
     def _republish_message(self, message: AbstractIncomingMessage) -> aio_pika.Message:
-        """
-        Cria uma nova mensagem preservando o corpo e as propriedades importantes.
-        """
         return aio_pika.Message(
             body=message.body,
             headers=message.headers,
@@ -91,23 +82,15 @@ class RabbitMQConsumer:
 
     async def _on_message(self, message: AbstractIncomingMessage):
         correlation_id = message.correlation_id
-        retry_count = 0
-        if message.headers and "x-death" in message.headers:
-            retry_count = message.headers["x-death"][0]["count"]
+        retry_count = message.headers.get("x-death", [{}])[0].get("count", 0)
 
         print(f"Recebida mensagem. Tentativa #{retry_count + 1}. correlation_id='{correlation_id}'")
 
         try:
             event_data = json.loads(message.body.decode())
             processed = await self.event_handler.process_event(
-                event_data,
-                correlation_id,
-                retry_count
+                event_data, correlation_id, retry_count
             )
-
-            if processed:
-                print(f"Mensagem processada com sucesso. correlation_id='{correlation_id}'")
-
             await message.ack()
 
         except (EventTypeValidationError, SchemaValidationError, json.JSONDecodeError, TemplateRenderingError) as e:
@@ -135,6 +118,6 @@ class RabbitMQConsumer:
         try:
             await asyncio.Future()
         finally:
-            if self._connection:
+            if self._connection and not self._connection.is_closed:
                 await self._connection.close()
                 print("Conexão com o RabbitMQ fechada.")

@@ -1,18 +1,10 @@
 from fastapi import APIRouter
-from datetime import datetime
-
-from config import settings
 
 router = APIRouter()
 
-@router.get("/health")
-async def health_check():
+@router.get("/status")
+async def get_notification_status():
     """
-    Endpoint para verificar a saúde do serviço.
+    Endpoint de exemplo para o status do módulo de notificação.
     """
-    return {
-        "status": "healthy",
-        "service": settings.APP_NAME,
-        "version": settings.API_VERSION,
-        "timestamp": datetime.now(),
-    }
+    return {"module": "notification-service", "status": "ok"}

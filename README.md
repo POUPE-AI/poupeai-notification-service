@@ -7,27 +7,35 @@ Serviço de notificações usando FastAPI.
 ```
 poupeai-notification-service
 ├── requirements/
-│   └── base.txt 
+│   └── base.txt 
 ├── src/
-│   ├── notification_service/
-│   │   ├── __init__.py
-│   │   ├── models.py      # Modelos do banco de dados
-│   │   ├── router.py      # Endpoints
-│   │   ├── consumer.py    # Configuração do consumer do RabbitMQ
-│   │   ├── exceptions.py  # Exceções personalizadas
-│   │   ├── schemas.py     # Modelos pydantic
-│   │   ├── config.py      # Configurações locais
-│   │   └── service.py     # Regras de négocio
-│   │
-│   ├── __init__.py
-│   ├── config.py          # Configurações globais
-│   ├── database.py        # Conexão com o banco de dados
-│   └── main.py            
+│   ├── notification_service/
+│   │   ├── __init__.py
+│   │   ├── templates/         # Templates de e-mail (HTML)
+│   │   │   ├── invoice_due_soon.html
+│   │   │   └── ...
+│   │   ├── consumer.py        # Lógica do consumidor RabbitMQ
+│   │   ├── exceptions.py      # Exceções personalizadas
+│   │   ├── router.py          # Endpoints HTTP (sem uso no momento)
+│   │   ├── schemas.py         # Schemas de validação (Pydantic)
+│   │   └── service.py         # Lógica de negócio e manipulação de eventos
+│   │
+│   ├── __init__.py
+│   ├── config.py              # Configurações globais (via Pydantic)
+│   ├── redis_client.py        # Configuração da conexão com Redis
+│   └── main.py                 # Ponto de entrada da aplicação FastAPI
 │
 ├── .env.template
+├── docker-compose.yml
 ├── .gitignore
-└──  README.md
+└──  README.md
 ```
+
+## Arquitetura e Padrões de Projeto
+
+  * **Processamento Assíncrono com Filas:** O RabbitMQ é usado para receber e processar eventos de notificação de forma assíncrona, garantindo que o sistema de origem não precise esperar pela conclusão do envio.
+  * **Idempotência:** Cada evento de notificação contém um `message_id` único. O serviço utiliza o Redis para rastrear os IDs das mensagens já processadas com sucesso, prevenindo envios duplicados em caso de reentregas pela fila.
+  * **Estratégia de Retry e Dead-Letter Queue (DLQ):** A arquitetura de filas implementa um padrão de retentativas com delay para falhas transientes (ex: falha de conexão com o servidor de e-mail) e move mensagens com falhas permanentes ou que excederam o limite de tentativas para uma DLQ.
 
 ## Instalação e Execução
 
@@ -119,7 +127,8 @@ docker-compose down -v
 ```
 
 ### Health Check
-- **GET** `/api/v1/health` - Verificar status
+
+  - **GET** `/api/v1/health` - Verifica o status da aplicação e a conectividade com o Redis.
 
 ## Estratégia de Filas (RabbitMQ)
 
@@ -192,7 +201,9 @@ O corpo da mensagem deve ser um objeto JSON que segue a estrutura abaixo. O camp
     "name": "Maria Santos"
   },
   "payload": {
-    "invoice_id": "inv-2025-07-1234",
+    "credit_card": "Cartão BB",
+    "month": 7,
+    "year": 2025,
     "due_date": "2025-07-25",
     "amount": 150.50,
     "invoice_deep_link": "poupeai://app/invoices/inv-2025-07-1234"
@@ -217,7 +228,9 @@ O corpo da mensagem deve ser um objeto JSON que segue a estrutura abaixo. O camp
     "name": "Maria Santos"
   },
   "payload": {
-    "invoice_id": "inv-2025-07-1234",
+    "credit_card": "Cartão BB",
+    "month": 7,
+    "year": 2025,
     "due_date": "2025-07-25",
     "amount": 150.50,
     "days_overdue": 1,
@@ -229,14 +242,14 @@ O corpo da mensagem deve ser um objeto JSON que segue a estrutura abaixo. O camp
 </details>
 
 <details>
-<summary><strong><code>PROFILE_DEACTIVATION_SCHEDULED</code> - Desativação de Perfil Agendada</strong></summary>
+<summary><strong><code>PROFILE_DELETION_SCHEDULED</code> - Exclusão de Perfil Agendada</strong></summary>
 
 ```json
 {
   "message_id": "c3d4e5f6-a7b8-9012-3456-7890abcdef12",
   "timestamp": "2025-08-01T18:00:00Z",
   "trigger_type": "user_action",
-  "event_type": "PROFILE_DEACTIVATION_SCHEDULED",
+  "event_type": "PROFILE_DELETION_SCHEDULED",
   "recipient": {
     "user_id": "user-456",
     "email": "carlos.pereira@email.com",

@@ -10,21 +10,25 @@ class RecipientSchema(BaseModel):
 
 class InvoiceDueSoonPayload(BaseModel):
     """Payload for INVOICE_DUE_SOON event."""
-    invoice_id: str
+    credit_card: str
+    month: int
+    year: int
     due_date: date
     amount: float
     invoice_deep_link: str
 
 class InvoiceOverduePayload(BaseModel):
     """Payload for INVOICE_OVERDUE event."""
-    invoice_id: str
+    credit_card: str
+    month: int
+    year: int
     due_date: date
     amount: float
     days_overdue: int
     invoice_deep_link: str
 
-class ProfileDeactivationScheduledPayload(BaseModel):
-    """Payload for PROFILE_DEACTIVATION_SCHEDULED event."""
+class ProfileDeletionScheduledPayload(BaseModel):
+    """Payload for PROFILE_DELETION_SCHEDULED event."""
     deletion_scheduled_at: datetime
     reactivate_account_deep_link: str
 
@@ -40,5 +44,5 @@ class NotificationEventEnvelope(BaseModel):
     payload: Union[
         InvoiceDueSoonPayload,
         InvoiceOverduePayload,
-        ProfileDeactivationScheduledPayload
+        ProfileDeletionScheduledPayload
     ] = Field(...)

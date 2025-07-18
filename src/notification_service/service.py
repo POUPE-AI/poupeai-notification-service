@@ -98,6 +98,8 @@ def get_mail_config(settings: Settings = Depends(lambda: app_settings)) -> Conne
         MAIL_STARTTLS=settings.MAIL_STARTTLS,
         MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
         TEMPLATE_FOLDER=Path(__file__).parent / 'templates',
+        USE_CREDENTIALS=True,
+        VALIDATE_CERTS=False
     )
 
 def get_email_service(mail_config: ConnectionConfig = Depends(get_mail_config)) -> EmailService:

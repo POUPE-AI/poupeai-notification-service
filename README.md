@@ -7,27 +7,35 @@ Serviço de notificações usando FastAPI.
 ```
 poupeai-notification-service
 ├── requirements/
-│   └── base.txt 
+│   └── base.txt 
 ├── src/
-│   ├── notification_service/
-│   │   ├── __init__.py
-│   │   ├── models.py      # Modelos do banco de dados
-│   │   ├── router.py      # Endpoints
-│   │   ├── consumer.py    # Configuração do consumer do RabbitMQ
-│   │   ├── exceptions.py  # Exceções personalizadas
-│   │   ├── schemas.py     # Modelos pydantic
-│   │   ├── config.py      # Configurações locais
-│   │   └── service.py     # Regras de négocio
-│   │
-│   ├── __init__.py
-│   ├── config.py          # Configurações globais
-│   ├── database.py        # Conexão com o banco de dados
-│   └── main.py            
+│   ├── notification_service/
+│   │   ├── __init__.py
+│   │   ├── templates/         # Templates de e-mail (HTML)
+│   │   │   ├── invoice_due_soon.html
+│   │   │   └── ...
+│   │   ├── consumer.py        # Lógica do consumidor RabbitMQ
+│   │   ├── exceptions.py      # Exceções personalizadas
+│   │   ├── router.py          # Endpoints HTTP (sem uso no momento)
+│   │   ├── schemas.py         # Schemas de validação (Pydantic)
+│   │   └── service.py         # Lógica de negócio e manipulação de eventos
+│   │
+│   ├── __init__.py
+│   ├── config.py              # Configurações globais (via Pydantic)
+│   ├── redis_client.py        # Configuração da conexão com Redis
+│   └── main.py                 # Ponto de entrada da aplicação FastAPI
 │
 ├── .env.template
+├── docker-compose.yml
 ├── .gitignore
-└──  README.md
+└──  README.md
 ```
+
+## Arquitetura e Padrões de Projeto
+
+  * **Processamento Assíncrono com Filas:** O RabbitMQ é usado para receber e processar eventos de notificação de forma assíncrona, garantindo que o sistema de origem não precise esperar pela conclusão do envio.
+  * **Idempotência:** Cada evento de notificação contém um `message_id` único. O serviço utiliza o Redis para rastrear os IDs das mensagens já processadas com sucesso, prevenindo envios duplicados em caso de reentregas pela fila.
+  * **Estratégia de Retry e Dead-Letter Queue (DLQ):** A arquitetura de filas implementa um padrão de retentativas com delay para falhas transientes (ex: falha de conexão com o servidor de e-mail) e move mensagens com falhas permanentes ou que excederam o limite de tentativas para uma DLQ.
 
 ## Instalação e Execução
 
@@ -119,7 +127,8 @@ docker-compose down -v
 ```
 
 ### Health Check
-- **GET** `/api/v1/health` - Verificar status
+
+  - **GET** `/api/v1/health` - Verifica o status da aplicação e a conectividade com o Redis.
 
 ## Estratégia de Filas (RabbitMQ)
 

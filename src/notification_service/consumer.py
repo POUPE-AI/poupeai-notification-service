@@ -19,27 +19,27 @@ class RabbitMQConsumer:
         self.event_handler = event_handler
         self._connection = None
         self._channel = None
-        print("Consumidor RabbitMQ inicializado.")
+        logger.info("rabbitmq_consumer_initialized")
 
     async def connect(self):
         retry_interval = 5
         while True:
             try:
-                print("Tentando conectar ao RabbitMQ...")
+                logger.info("rabbitmq_connecting")
                 self._connection = await aio_pika.connect_robust(self.rabbitmq_url)
                 self._channel = await self._connection.channel()
-                print("Conexão com o RabbitMQ estabelecida com sucesso!")
+                logger.info("rabbitmq_connected_successfully")
                 return
             except Exception as e:
-                print(f"Falha ao conectar ao RabbitMQ: {e}. Tentando novamente em {retry_interval}s...")
+                logger.error("rabbitmq_connection_failed", error=str(e), retry_in_seconds=retry_interval)
                 await asyncio.sleep(retry_interval)
 
     async def _setup_queues(self):
         if not self._channel:
             raise ConnectionError("Canal de comunicação não disponível.")
 
-        print("Configurando a topologia do RabbitMQ...")
-
+        logger.info("rabbitmq_topology_setup_starting")
+        
         retry_exchange_name = settings.RABBITMQ_EXCHANGE_RETRY
         retry_queue_name = settings.RABBITMQ_QUEUE_RETRY
         retry_delay_ms = settings.RABBITMQ_RETRY_DELAY_MS
@@ -73,7 +73,7 @@ class RabbitMQConsumer:
             settings.RABBITMQ_QUEUE_MAIN, durable=True
         )
         await self.main_queue.bind(self.main_exchange, routing_key=settings.RABBITMQ_ROUTING_KEY)
-        print("Topologia do RabbitMQ configurada.")
+        logger.info("rabbitmq_topology_setup_finished")
 
     def _republish_message(self, message: AbstractIncomingMessage) -> aio_pika.Message:
         return aio_pika.Message(
@@ -86,55 +86,70 @@ class RabbitMQConsumer:
 
     async def _on_message(self, message: AbstractIncomingMessage):
         correlation_id = message.correlation_id or str(uuid4())
-
-        log = logger.bind(
-            correlation_id=correlation_id,
-            message_id=message.message_id,
-            delivery_tag=message.delivery_tag
-        )
-
-        retry_count = message.headers.get("x-death", [{}])[0].get("count", 0)
-
-        log.info(
-            "message_received",
-            retry_count=retry_count,
-            exchange=message.exchange,
-            routing_key=message.routing_key
-        )
+        log = logger.bind(correlation_id=correlation_id)
+        event_data = {}
 
         try:
             event_data = json.loads(message.body.decode())
-            processed = await self.event_handler.process_event(
-                event_data, correlation_id, retry_count
+            retry_count = message.headers.get("x-death", [{}])[0].get("count", 0)
+
+            log.info(
+                f"Message received on queue '{self.main_queue.name}'.",
+                event_type="MESSAGE_RECEIVED",
+                trigger_type=event_data.get("trigger_type"),
+                actor_user_id=event_data.get("recipient", {}).get("user_id"),
+                rabbitmq_details={"retry_count": retry_count, "routing_key": message.routing_key}
             )
+
+            await self.event_handler.process_event(event_data, correlation_id)
             await message.ack()
-            log.info("message_processed_and_acked")
 
         except (EventTypeValidationError, SchemaValidationError, json.JSONDecodeError, TemplateRenderingError) as e:
-            log.error("unrecoverable_error_sending_to_dlq", reason=str(e))
+            log.error(
+                f"Unrecoverable error: {e}. Moving message to DLQ.",
+                event_type="MESSAGE_SENT_TO_DLQ",
+                reason=str(e),
+                trigger_type=event_data.get("trigger_type", "unknown"),
+                actor_user_id=event_data.get("recipient", {}).get("user_id"),
+            )
             republished_message = self._republish_message(message)
             await self.dlx_exchange.publish(republished_message, routing_key=settings.RABBITMQ_ROUTING_KEY)
             await message.ack()
 
         except TransientProcessingError as e:
-            log.warn("transient_error_handling", reason=str(e), retry_count=retry_count)
-            republished_message = self._republish_message(message)
+            retry_count = message.headers.get("x-death", [{}])[0].get("count", 0)
+            log_details = {
+                "trigger_type": event_data.get("trigger_type"),
+                "actor_user_id": event_data.get("recipient", {}).get("user_id")
+            }
             if retry_count < self.MAX_RETRIES:
-                log.info("message_republishing_to_retry_queue")
+                log.info(
+                    f"Transient error: {e}. Scheduling retry.",
+                    event_type="MESSAGE_RETRY_SCHEDULED",
+                    retry_details={"current_attempt": retry_count + 1, "max_retries": self.MAX_RETRIES},
+                    **log_details
+                )
+                republished_message = self._republish_message(message)
                 await self.retry_exchange.publish(republished_message, routing_key=settings.RABBITMQ_ROUTING_KEY)
             else:
-                log.error("max_retries_reached_sending_to_dlq", max_retries=self.MAX_RETRIES)
+                log.error(
+                    f"Max retries ({self.MAX_RETRIES}) reached. Moving message to DLQ.",
+                    event_type="MESSAGE_SENT_TO_DLQ_MAX_RETRIES",
+                    last_error=str(e),
+                    **log_details
+                )
+                republished_message = self._republish_message(message)
                 await self.dlx_exchange.publish(republished_message, routing_key=settings.RABBITMQ_ROUTING_KEY)
             await message.ack()
-
+    
     async def run(self):
         await self.connect()
         await self._setup_queues()
-        print("Consumidor pronto e aguardando por mensagens...")
+        logger.info("consumer_ready_and_waiting")
         await self.main_queue.consume(self._on_message)
         try:
             await asyncio.Future()
         finally:
             if self._connection and not self._connection.is_closed:
                 await self._connection.close()
-                print("Conexão com o RabbitMQ fechada.")
+                logger.info("rabbitmq_connection_closed")

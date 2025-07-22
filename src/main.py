@@ -13,10 +13,19 @@ from notification_service.consumer import RabbitMQConsumer
 from notification_service.router import router as notification_router
 from notification_service.service import EmailService, EventHandler, get_mail_config
 
+from logging_config import setup_logging
+import structlog
+
 app_state: Dict = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    setup_logging(log_level="DEBUG" if settings.DEBUG else "INFO")
+
+    logger = structlog.get_logger(__name__)
+
+    logger.info("application_startup", app_name=settings.APP_NAME)
+
     await init_redis_pool()
     redis_client = await get_redis_client()
 
@@ -33,7 +42,7 @@ async def lifespan(app: FastAPI):
     
     yield
     
-    print("Executando tarefas de shutdown...")
+    logger.info("application_shutdown")
     
     consumer_task = app_state.get("consumer_task")
     if consumer_task:

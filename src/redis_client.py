@@ -1,7 +1,9 @@
 import redis.asyncio as redis
+import structlog
 from config import settings
 
 redis_pool: redis.Redis | None = None
+logger = structlog.get_logger(__name__)
 
 async def init_redis_pool():
     global redis_pool
@@ -11,12 +13,12 @@ async def init_redis_pool():
         decode_responses=True
     )
     await redis_pool.ping()
-    print("Pool de conexões Redis inicializado e verificado com sucesso.")
+    logger.info("redis_pool_initialized_successfully")
 
 async def close_redis_pool():
     if redis_pool:
         await redis_pool.close()
-        print("Pool de conexões Redis fechado.")
+        logger.info("redis_pool_closed")
 
 async def get_redis_client() -> redis.Redis:
     if redis_pool is None:

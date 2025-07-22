@@ -1,11 +1,15 @@
 import asyncio
 import aio_pika
 import json
+import structlog
+from uuid import uuid4
 
 from aio_pika.abc import AbstractIncomingMessage
 from config import settings
 from .exceptions import EventTypeValidationError, SchemaValidationError, TemplateRenderingError, TransientProcessingError
 from .service import EventHandler
+
+logger = structlog.get_logger(__name__)
 
 class RabbitMQConsumer:
     MAX_RETRIES = settings.RABBITMQ_MAX_RETRIES
@@ -81,10 +85,22 @@ class RabbitMQConsumer:
         )
 
     async def _on_message(self, message: AbstractIncomingMessage):
-        correlation_id = message.correlation_id
+        correlation_id = message.correlation_id or str(uuid4())
+
+        log = logger.bind(
+            correlation_id=correlation_id,
+            message_id=message.message_id,
+            delivery_tag=message.delivery_tag
+        )
+
         retry_count = message.headers.get("x-death", [{}])[0].get("count", 0)
 
-        print(f"Recebida mensagem. Tentativa #{retry_count + 1}. correlation_id='{correlation_id}'")
+        log.info(
+            "message_received",
+            retry_count=retry_count,
+            exchange=message.exchange,
+            routing_key=message.routing_key
+        )
 
         try:
             event_data = json.loads(message.body.decode())
@@ -92,21 +108,22 @@ class RabbitMQConsumer:
                 event_data, correlation_id, retry_count
             )
             await message.ack()
+            log.info("message_processed_and_acked")
 
         except (EventTypeValidationError, SchemaValidationError, json.JSONDecodeError, TemplateRenderingError) as e:
-            print(f"[ERRO IRRECUPERÁVEL] {e}. Enviando para DLQ. correlation_id='{correlation_id}'")
+            log.error("unrecoverable_error_sending_to_dlq", reason=str(e))
             republished_message = self._republish_message(message)
             await self.dlx_exchange.publish(republished_message, routing_key=settings.RABBITMQ_ROUTING_KEY)
             await message.ack()
 
         except TransientProcessingError as e:
-            print(f"[ERRO TRANSiente] {e}. Tentativa #{retry_count + 1}. correlation_id='{correlation_id}'")
+            log.warn("transient_error_handling", reason=str(e), retry_count=retry_count)
             republished_message = self._republish_message(message)
             if retry_count < self.MAX_RETRIES:
-                print("Enviando para a fila de retentativas...")
+                log.info("message_republishing_to_retry_queue")
                 await self.retry_exchange.publish(republished_message, routing_key=settings.RABBITMQ_ROUTING_KEY)
             else:
-                print(f"Limite de {self.MAX_RETRIES} tentativas atingido. Enviando para DLQ. correlation_id='{correlation_id}'")
+                log.error("max_retries_reached_sending_to_dlq", max_retries=self.MAX_RETRIES)
                 await self.dlx_exchange.publish(republished_message, routing_key=settings.RABBITMQ_ROUTING_KEY)
             await message.ack()
 

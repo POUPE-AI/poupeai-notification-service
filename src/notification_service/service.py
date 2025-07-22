@@ -1,4 +1,5 @@
 from pathlib import Path
+import structlog
 from typing import Optional
 
 from fastapi import Depends
@@ -12,11 +13,15 @@ from redis_client import get_redis_client
 from .exceptions import EventTypeValidationError, SchemaValidationError, TransientProcessingError, TemplateRenderingError
 from .schemas import NotificationEventEnvelope
 
+logger = structlog.get_logger(__name__)
+
 class EmailService:
     def __init__(self, mailer: FastMail):
         self.mailer = mailer
 
-    async def send_email(self, subject: str, recipient: str, template_name: str, body_context: dict):
+    async def send_email(self, subject: str, recipient: str, template_name: str, body_context: dict, correlation_id: Optional[str] = None):
+        log = logger.bind(correlation_id=correlation_id, recipient=recipient, subject=subject, template=template_name)
+
         message = MessageSchema(
             subject=subject,
             recipients=[recipient],
@@ -24,11 +29,14 @@ class EmailService:
             subtype=MessageType.html
         )
         try:
+            log.info("email_sending")
             await self.mailer.send_message(message, template_name=template_name)
-            print(f"E-mail de '{subject}' enviado com sucesso para {recipient}.")
+            log.info("email_sent_successfully")
         except ConnectionErrors as e:
+            log.error("email_send_failed_connection", error=str(e))
             raise TransientProcessingError(f"Falha de conexão com o servidor de e-mail: {e}") from e
         except Exception as e:
+            log.error("email_send_failed_render", error=str(e))
             raise TemplateRenderingError(f"Falha ao renderizar o template {template_name}: {e}") from e
 
 class EventHandler:
@@ -41,28 +49,31 @@ class EventHandler:
             "PROFILE_DELETION_SCHEDULED": self._handle_profile_deletion,
         }
 
-    async def _handle_invoice_due_soon(self, event: NotificationEventEnvelope, **_):
+    async def _handle_invoice_due_soon(self, event: NotificationEventEnvelope, correlation_id: str, **_):
         await self.email_service.send_email(
             subject="Poupe.AI - Lembrete: Sua fatura vence em breve!",
             recipient=event.recipient.email,
             template_name="invoice_due_soon.html",
-            body_context=event.model_dump()
+            body_context=event.model_dump(),
+            correlation_id=correlation_id
         )
 
-    async def _handle_invoice_overdue(self, event: NotificationEventEnvelope, **_):
+    async def _handle_invoice_overdue(self, event: NotificationEventEnvelope, correlation_id: str, **_):
         await self.email_service.send_email(
             subject="Poupe.AI - Aviso de Fatura Vencida",
             recipient=event.recipient.email,
             template_name="invoice_overdue.html",
-            body_context=event.model_dump()
+            body_context=event.model_dump(),
+            correlation_id=correlation_id
         )
 
-    async def _handle_profile_deletion(self, event: NotificationEventEnvelope, **_):
+    async def _handle_profile_deletion(self, event: NotificationEventEnvelope, correlation_id: str, **_):
         await self.email_service.send_email(
             subject="Poupe.AI - Confirmação de Agendamento de Desativação de Conta",
             recipient=event.recipient.email,
             template_name="profile_deletion_scheduled.html",
-            body_context=event.model_dump()
+            body_context=event.model_dump(),
+            correlation_id=correlation_id
         )
 
     async def process_event(self, event_data: dict, correlation_id: Optional[str] = None, retry_count: int = 0) -> bool:

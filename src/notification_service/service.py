@@ -39,7 +39,7 @@ class EmailService:
                 error=str(e),
                 exc_info=e
             )
-            raise TransientProcessingError(f"Falha de conexão com o servidor de e-mail: {e}") from e
+            raise TransientProcessingError(f"Failed to connect to the email server: {e}") from e
         except Exception as e:
             log.error(
                 "Failed to render email template",
@@ -47,7 +47,7 @@ class EmailService:
                 error=str(e),
                 exc_info=e
             )
-            raise TemplateRenderingError(f"Falha ao renderizar o template {template_name}: {e}") from e
+            raise TemplateRenderingError(f"Failed to render template {template_name}: {e}") from e
 
 class EventHandler:
     def __init__(self, redis_client: Redis, email_service: EmailService):
@@ -92,7 +92,7 @@ class EventHandler:
         try:
             event = NotificationEventEnvelope.model_validate(event_data)
         except ValidationError as e:
-            raise SchemaValidationError(f"Schema da mensagem inválido: {e}")
+            raise SchemaValidationError(f"Invalid message schema: {e}")
 
         idempotency_key = f"idempotency:{event.message_id}"
         

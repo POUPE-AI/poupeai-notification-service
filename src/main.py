@@ -28,7 +28,6 @@ async def lifespan(app: FastAPI):
     
     await init_redis_pool()
     redis_client = await get_redis_client()
-    logger.info("Redis connection pool initialized", event_type="REDIS_POOL_INITIALIZED")
 
     mail_config = get_mail_config(settings)
     email_service = EmailService(FastMail(mail_config))

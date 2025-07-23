@@ -9,12 +9,12 @@ services:
     volumes:
       - ./src:/app
     depends_on:
-      - rabbitmq
-      - redis
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - poupeai-network
-    environment:
-      - PYTHONUNBUFFERED=1
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -29,20 +29,27 @@ services:
       - rabbitmq_data:/var/lib/rabbitmq/
     networks:
       - poupeai-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     container_name: redis-poupeai
+    command: redis-server --requirepass ${REDIS_PASSWORD}
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
       - poupeai-network
-    command:
-      - redis-server
-      - --requirepass
-      - ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   poupeai-network:

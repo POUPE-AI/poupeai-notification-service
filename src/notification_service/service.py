@@ -29,14 +29,24 @@ class EmailService:
             subtype=MessageType.html
         )
         try:
-            log.info("email_sending")
+            log.info("Starting email delivery", event_type="EMAIL_DELIVERY_START")
             await self.mailer.send_message(message, template_name=template_name)
-            log.info("email_sent_successfully")
+            log.info("Email sent successfully", event_type="EMAIL_SENT_SUCCESSFULLY")
         except ConnectionErrors as e:
-            log.error("email_send_failed_connection", error=str(e))
+            log.error(
+                "Failed to connect to email server", 
+                event_type="EMAIL_SEND_FAILED_CONNECTION",
+                error=str(e),
+                exc_info=e
+            )
             raise TransientProcessingError(f"Falha de conexão com o servidor de e-mail: {e}") from e
         except Exception as e:
-            log.error("email_send_failed_render", error=str(e))
+            log.error(
+                "Failed to render email template",
+                event_type="EMAIL_SEND_FAILED_RENDER",
+                error=str(e),
+                exc_info=e
+            )
             raise TemplateRenderingError(f"Falha ao renderizar o template {template_name}: {e}") from e
 
 class EventHandler:
@@ -77,25 +87,41 @@ class EventHandler:
         )
 
     async def process_event(self, event_data: dict, correlation_id: Optional[str] = None, retry_count: int = 0) -> bool:
+        log = logger.bind(correlation_id=correlation_id, event_type=event_data.get("event_type", "unknown"), retry_count=retry_count)
+
         try:
             event = NotificationEventEnvelope.model_validate(event_data)
         except ValidationError as e:
             raise SchemaValidationError(f"Schema da mensagem inválido: {e}")
 
         idempotency_key = f"idempotency:{event.message_id}"
+        
         if await self.redis_client.exists(idempotency_key):
-            print(f"[IDEMPOTENCY_CHECK] Mensagem duplicada ignorada. message_id='{event.message_id}'")
+            log.info(
+                "Duplicate message detected via idempotency check. Skipping.",
+                event_type="MESSAGE_IDEMPOTENCY_DUPLICATE",
+                event_details={"message_id": event.message_id}
+            )
             return False
 
         handler = self.event_router.get(event.event_type)
         if not handler:
             raise EventTypeValidationError(event.event_type)
 
-        print(f"[HANDLER] Processando '{event.event_type}' para {event.recipient.email}")
+        log.info(
+            "Processing event with handler",
+            event_type="EVENT_PROCESSING_START",
+            event_details={"handler_name": handler.__name__, "recipient_email": event.recipient.email}
+        )
+        
         await handler(event=event, correlation_id=correlation_id, retry_count=retry_count)
 
         await self.redis_client.set(idempotency_key, "processed", ex=86400)
-        print(f"[IDEMPOTENCY_CHECK] Mensagem marcada como processada. message_id='{event.message_id}'")
+        log.info(
+            "Message marked as processed in Redis via idempotency key.",
+            event_type="MESSAGE_IDEMPOTENCY_PROCESSED",
+            event_details={"message_id": event.message_id, "ttl_seconds": 86400}
+        )
         return True
 
 def get_mail_config(settings: Settings = Depends(lambda: app_settings)) -> ConnectionConfig:

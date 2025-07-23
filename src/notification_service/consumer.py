@@ -9,6 +9,8 @@ from config import settings
 from .exceptions import EventTypeValidationError, SchemaValidationError, TemplateRenderingError, TransientProcessingError
 from .service import EventHandler
 
+from datetime import datetime
+
 logger = structlog.get_logger(__name__)
 
 class RabbitMQConsumer:
@@ -162,13 +164,23 @@ class RabbitMQConsumer:
             )
         
             await self.event_handler.process_event(event_data, correlation_id)
+            processed_in_ms = None
+            event_ts_str = event_data.get("timestamp")
+            if event_ts_str:
+                try:
+                    event_ts = datetime.fromisoformat(event_ts_str.replace("Z", "+00:00"))
+                    now = datetime.utcnow().timestamp()
+                    processed_in_ms = (now - event_ts.timestamp()) * 1000
+                except Exception as e:
+                    log.warning("Failed to parse event timestamp from body", error=str(e))
+
             log.info(
                 "Message processed successfully",
                 event_type="MESSAGE_PROCESSED_SUCCESSFULLY",
                 trigger_type=event_data.get("trigger_type"),
                 actor_user_id=event_data.get("recipient", {}).get("user_id"),
                 event_details={
-                    "processed_in_ms": (asyncio.get_running_loop().time() - message.timestamp.timestamp()) * 1000,
+                    "processed_in_ms": processed_in_ms,
                 }
             )
             await message.ack()

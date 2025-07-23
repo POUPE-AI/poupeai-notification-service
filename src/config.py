@@ -7,6 +7,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = "Notification Service"
+    SERVICE_NAME: str = "notification-service" 
     API_VERSION: str = "0.0.1"
     DEBUG: bool = True
     HOST: str = "0.0.0.0"

@@ -13,10 +13,19 @@ from notification_service.consumer import RabbitMQConsumer
 from notification_service.router import router as notification_router
 from notification_service.service import EmailService, EventHandler, get_mail_config
 
+from logging_config import setup_logging
+import structlog
+
 app_state: Dict = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    setup_logging(log_level="DEBUG" if settings.DEBUG else "INFO")
+
+    logger = structlog.get_logger(__name__)
+    
+    logger.info("Starting service initialization", event_type="SERVICE_INIT_START")
+    
     await init_redis_pool()
     redis_client = await get_redis_client()
 
@@ -26,14 +35,19 @@ async def lifespan(app: FastAPI):
     
     consumer = RabbitMQConsumer(event_handler=event_handler)
     
+    logger.info("Starting RabbitMQ consumer task", event_type="CONSUMER_TASK_STARTED")
     consumer_task = asyncio.create_task(consumer.run())
     app_state["consumer_task"] = consumer_task
     
-    print("Startup concluído. A aplicação está pronta para receber requisições.")
+    logger.info(
+        "Application startup complete. Ready to receive requests.",
+        event_type="APPLICATION_READY",
+        trigger_type="system_scheduled",
+    )
     
     yield
     
-    print("Executando tarefas de shutdown...")
+    logger.info("Application shutdown initiated", event_type="APPLICATION_SHUTDOWN_START")
     
     consumer_task = app_state.get("consumer_task")
     if consumer_task:
@@ -41,9 +55,15 @@ async def lifespan(app: FastAPI):
         try:
             await consumer_task
         except asyncio.CancelledError:
-            print("Tarefa do consumidor cancelada com sucesso.")
+            logger.info(
+                "Consumer task cancelled successfully",
+                event_type="CONSUMER_TASK_CANCELLED",
+                trigger_type="system_scheduled",
+            )
             
     await close_redis_pool()
+    
+    logger.info("Application shutdown complete", event_type="APPLICATION_SHUTDOWN_COMPLETE")
 
 def create_app() -> FastAPI:
     app = FastAPI(

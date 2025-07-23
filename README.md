@@ -23,9 +23,10 @@ poupeai-notification-service
 │   ├── __init__.py
 │   ├── config.py              # Configurações globais (via Pydantic)
 │   ├── redis_client.py        # Configuração da conexão com Redis
-│   └── main.py                 # Ponto de entrada da aplicação FastAPI
+│   ├── logging_config.py      # Configuração dos logs
+│   └── main.py                # Ponto de entrada da aplicação FastAPI
 │
-├── .env.template
+├── .env.example
 ├── docker-compose.yml
 ├── .gitignore
 └──  README.md
@@ -45,10 +46,10 @@ Siga os passos abaixo para configurar e executar o projeto localmente.
 
 As configurações da aplicação, como conexões com bancos de dados e serviços externos (RabbitMQ, Redis, etc.), são carregadas a partir de variáveis de ambiente.
 
-Copie o arquivo de template `.env.template` para criar seu próprio arquivo de configuração local `.env`.
+Copie o arquivo de template `.env.example` para criar seu próprio arquivo de configuração local `.env`.
 
 ```bash
-cp .env.template .env
+cp .env.example .env
 ```
 
 Após copiar, **abra o arquivo `.env`** e preencha os valores para cada variável com as suas credenciais e configurações de ambiente.
@@ -80,13 +81,15 @@ uvicorn main:app --reload --port 8001
 
 O método recomendado para executar o projeto localmente é usando Docker Compose. Ele irá configurar a aplicação, o RabbitMQ e o Redis automaticamente.
 
+> **Nota:** Este `docker-compose.yml` foi projetado para o desenvolvimento isolado deste serviço. Para executar a stack completa da aplicação, com todos os microsserviços integrados, utilize o arquivo `docker-compose.yml` principal localizado no repositório `.gitbub` da organização.
+
 ### 1. Pré-requisitos
 
 - Docker e Docker Compose instalados.
-- Crie um arquivo `.env` a partir do template `.env.template` e preencha as variáveis, se necessário.
+- Crie um arquivo `.env` a partir do template `.env.example` e preencha as variáveis, se necessário.
 
 ```bash
-cp .env.template .env
+cp .env.example .env
 ```
 
 ### 2 Iniciar o Ambiente
@@ -129,6 +132,12 @@ docker-compose down -v
 ### Health Check
 
   - **GET** `/api/v1/health` - Verifica o status da aplicação e a conectividade com o Redis.
+
+## Logging
+
+O serviço utiliza a biblioteca `structlog` para gerar logs estruturados no formato JSON. Essa abordagem padroniza a saída de logs, facilitando a coleta, busca e análise em ambientes centralizados. Todos os logs incluem campos importantes como `correlation_id`, `event_type` e `timestamp`, permitindo uma rastreabilidade detalhada das operações.
+
+Os logs gerados são enviados para a saída padrão (`stdout`) e são coletados pela nossa stack de logging central (**Promtail/Loki/Grafana**), onde podem ser consultados e correlacionados com eventos de outros serviços.
 
 ## Estratégia de Filas (RabbitMQ)
 
@@ -176,11 +185,13 @@ Para ser processada corretamente, toda mensagem enviada ao `notification_exchang
 
 As seguintes propriedades devem ser configuradas ao publicar a mensagem:
 
-| Propriedade | Valor Exemplo | Obrigatório | Descrição |
-| :--- | :--- | :--- | :--- |
-| `routing_key` | `notification.event` | Sim | Chave de roteamento para ligar a exchange à fila principal. |
-| `correlation_id` | `"trace-abc-123"` | Sim | Identificador para rastreabilidade e logs ponta a ponta. |
-| `content_type` | `application/json` | Sim | Indica que o corpo da mensagem é um JSON. |
+| Propriedade      | Valor Exemplo          | Obrigatório | Descrição                                               |
+| :--------------- | :--------------------- | :---------- | :------------------------------------------------------ |
+| `routing_key`    | `notification.event`   | Sim         | Chave de roteamento para ligar a exchange à fila principal. |
+| `correlation_id` | `"trace-abc-123"`      | Sim         | Identificador para rastreabilidade e logs ponta a ponta.    |
+| `content_type`   | `application/json`     | Sim         | Indica que o corpo da mensagem é um JSON.               |
+
+**É fundamental que todo produtor de mensagens garanta a inclusão e o repasse do `correlation_id`. Este identificador é a chave para a rastreabilidade ponta a ponta da requisição através dos diferentes microsserviços e para a depuração de problemas utilizando a stack de logging centralizada.**
 
 #### Corpo da Mensagem (Payload)
 

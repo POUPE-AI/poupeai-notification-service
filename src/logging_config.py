@@ -56,7 +56,7 @@ def setup_logging(log_level: str = "INFO"):
         logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
-    structlog.get_logger(__name__).info(
+    structlog.get_logger(__name__).debug(
         "Logging configured",
         event_type="LOGGING_CONFIGURED",
         log_level=log_level.upper()

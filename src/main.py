@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
 
     logger = structlog.get_logger(__name__)
     
-    logger.info("Starting service initialization", event_type="SERVICE_INIT_START")
+    logger.debug("Starting service initialization", event_type="SERVICE_INIT_START")
     
     await init_redis_pool()
     redis_client = await get_redis_client()
@@ -35,11 +35,11 @@ async def lifespan(app: FastAPI):
     
     consumer = RabbitMQConsumer(event_handler=event_handler)
     
-    logger.info("Starting RabbitMQ consumer task", event_type="CONSUMER_TASK_STARTED")
+    logger.debug("Starting RabbitMQ consumer task", event_type="CONSUMER_TASK_STARTED")
     consumer_task = asyncio.create_task(consumer.run())
     app_state["consumer_task"] = consumer_task
     
-    logger.info(
+    logger.debug(
         "Application startup complete. Ready to receive requests.",
         event_type="APPLICATION_READY",
         trigger_type="system_scheduled",
@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
     
     yield
     
-    logger.info("Application shutdown initiated", event_type="APPLICATION_SHUTDOWN_START")
+    logger.debug("Application shutdown initiated", event_type="APPLICATION_SHUTDOWN_START")
     
     consumer_task = app_state.get("consumer_task")
     if consumer_task:
@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI):
         try:
             await consumer_task
         except asyncio.CancelledError:
-            logger.info(
+            logger.debug(
                 "Consumer task cancelled successfully",
                 event_type="CONSUMER_TASK_CANCELLED",
                 trigger_type="system_scheduled",
@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
             
     await close_redis_pool()
     
-    logger.info("Application shutdown complete", event_type="APPLICATION_SHUTDOWN_COMPLETE")
+    logger.debug("Application shutdown complete", event_type="APPLICATION_SHUTDOWN_COMPLETE")
 
 def create_app() -> FastAPI:
     app = FastAPI(

@@ -21,7 +21,7 @@ class RabbitMQConsumer:
         self.event_handler = event_handler
         self._connection = None
         self._channel = None
-        logger.info(
+        logger.debug(
             "RabbitMQ consumer initialized",
             event_type="RABBITMQ_CONSUMER_INITIALIZED",
             trigger_type="system_scheduled",
@@ -30,7 +30,7 @@ class RabbitMQConsumer:
 
     async def connect(self):
         retry_interval = 5
-        logger.info(
+        logger.debug(
             "Attempting to connect to RabbitMQ",
             event_type="RABBITMQ_CONNECT_ATTEMPT",
             trigger_type="system_scheduled",
@@ -41,7 +41,7 @@ class RabbitMQConsumer:
             try:
                 self._connection = await aio_pika.connect_robust(self.rabbitmq_url)
                 self._channel = await self._connection.channel()
-                logger.info(
+                logger.debug(
                     "RabbitMQ connection established successfully",
                     event_type="RABBITMQ_CONNECTED_SUCCESSFULLY",
                     trigger_type="system_scheduled",
@@ -64,7 +64,7 @@ class RabbitMQConsumer:
         if not self._channel:
             raise ConnectionError("Communication channel not available.")
 
-        logger.info(
+        logger.debug(
             "Starting RabbitMQ topology setup",
             event_type="RABBITMQ_TOPOLOGY_SETUP_STARTING",
             trigger_type="system_scheduled"
@@ -105,7 +105,7 @@ class RabbitMQConsumer:
             )
             await self.main_queue.bind(self.main_exchange, routing_key=settings.RABBITMQ_ROUTING_KEY)
 
-            logger.info(
+            logger.debug(
                 "RabbitMQ topology setup finished successfully",
                 event_type="RABBITMQ_TOPOLOGY_SETUP_FINISHED",
                 trigger_type="system_scheduled",
@@ -240,7 +240,7 @@ class RabbitMQConsumer:
             await self.connect()
             await self._setup_queues()
         
-            logger.info(
+            logger.debug(
                 "Consumer is ready and starting to consume messages",
                 event_type="CONSUMER_STARTED_SUCCESSFULLY",
                 trigger_type="system_scheduled",
@@ -265,7 +265,7 @@ class RabbitMQConsumer:
         finally:
             if self._connection and not self._connection.is_closed:
                 await self._connection.close()
-                logger.info(
+                logger.debug(
                     "RabbitMQ connection successfully closed",
                     event_type="RABBITMQ_CONNECTION_CLOSED",
                     trigger_type="system_scheduled"

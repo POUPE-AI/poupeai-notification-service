@@ -13,7 +13,7 @@ async def init_redis_pool():
         decode_responses=True
     )
     await redis_pool.ping()
-    logger.info(
+    logger.debug(
         "Redis connection pool initialized successfully",
         event_type="REDIS_POOL_INITIALIZED",
         trigger_type="system_scheduled",
@@ -23,7 +23,7 @@ async def init_redis_pool():
 async def close_redis_pool():
     if redis_pool:
         await redis_pool.close()
-        logger.info(
+        logger.debug(
             "Redis connection pool closed successfully",
             event_type="REDIS_POOL_CLOSED",
             trigger_type="system_scheduled",

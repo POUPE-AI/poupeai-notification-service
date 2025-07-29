@@ -33,9 +33,7 @@ class Settings(BaseSettings):
     RABBITMQ_RETRY_DELAY_MS: int
 
     # Redis
-    REDIS_HOST: str
-    REDIS_PORT: int
-    REDIS_PASSWORD: SecretStr
+    REDIS_URL: str
 
     # Email
     MAIL_USERNAME: Optional[str] = None
@@ -50,10 +48,5 @@ class Settings(BaseSettings):
     @property
     def RABBITMQ_URL(self) -> AmqpDsn:
         return f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASSWORD.get_secret_value()}@{self.RABBITMQ_HOST}:{self.RABBITMQ_PORT}/"
-
-    @property
-    def REDIS_URL(self) -> RedisDsn:
-        password = self.REDIS_PASSWORD.get_secret_value()
-        return f"redis://:{password}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
 settings = Settings()

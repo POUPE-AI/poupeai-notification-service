@@ -48,10 +48,10 @@ jobs:
                     cd ${{ env.INFRA_DIR }}
 
                     echo "--- Atualizando a imagem do serviço --"
-                    docker compose pull notification-service
+                    docker compose -f docker-compose-production.yml pull notification-service
 
                     echo "--- Recriando o contêiner notification-service ---"
-                    docker compose up -d --no-deps notification-service
+                    docker compose -f docker-compose-production.yml up -d --no-deps notification-service
 
                     echo "--- Limpando imagens antigas ---"
                     docker image prune -af

@@ -1,0 +1,57 @@
+services:
+  app:
+    build: .
+    container_name: notification-service-app
+    env_file:
+      - .env
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./src:/app
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - poupeai-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq-poupeai
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq/
+    networks:
+      - poupeai-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-poupeai
+    volumes:
+      - redis_data:/data
+    networks:
+      - poupeai-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  poupeai-network:
+    driver: bridge
+
+volumes:
+  rabbitmq_data:
+  redis_data:

@@ -9,7 +9,7 @@ on:
             - main
 
 env:
-    IMAGE_NAME: franciscopaulinoq/poupei-notification-service
+    IMAGE_NAME: franciscopaulinoq/poupeai-notification-service
     INFRA_DIR: /home/deployer/poupei-infra
 
 jobs:

@@ -7,7 +7,7 @@ on:
 
 env:
     IMAGE_NAME: franciscopaulinoq/poupeai-notification-service
-    INFRA_DIR: /home/deployer/poupei-infra
+    INFRA_DIR: /home/deployer/poupeai-infra
 
 jobs:
     build_and_push:

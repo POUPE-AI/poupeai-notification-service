@@ -9,7 +9,7 @@ on:
             - main
 
 env:
-    IMAGE_NAME: franciscopaulino/poupei-notification-service
+    IMAGE_NAME: franciscopaulinoq/poupei-notification-service
     INFRA_DIR: /home/deployer/poupei-infra
 
 jobs:
@@ -35,7 +35,7 @@ jobs:
     deploy:
         needs: build_and_push
         runs-on: ubuntu-latest
-        
+
         steps:
             - name: Deploy para o servidor
               uses: appleboy/ssh-action@v1.0.3

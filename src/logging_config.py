@@ -26,7 +26,13 @@ def audit_formatter_processor(logger, method_name: str, event_dict: dict) -> dic
     else:
         output_dict["actor"] = None
     
-    output_dict["event_details"] = event_dict
+    final_details = {}
+    if 'event_details' in event_dict and isinstance(event_dict.get('event_details'), dict):
+        final_details.update(event_dict.pop('event_details'))
+
+    final_details.update(event_dict)
+
+    output_dict["event_details"] = final_details
     
     return output_dict
 

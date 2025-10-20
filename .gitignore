@@ -219,3 +219,7 @@ components.d.ts
 
 # Pyright
 pyrightconfig.json
+
+# Arquivos gerados pela ferramenta Coverage.py
+.coverage
+htmlcov/

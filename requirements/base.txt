@@ -32,6 +32,7 @@ Pygments==2.19.2
 pytest==8.4.2
 pytest-asyncio==1.2.0
 pytest-cov==7.0.0
+pytest-mock==3.15.1
 pytest-sugar==1.1.1
 python-dotenv==1.1.1
 PyYAML==6.0.3

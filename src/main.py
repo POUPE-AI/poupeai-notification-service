@@ -3,8 +3,9 @@ import uvicorn
 from contextlib import asynccontextmanager
 from typing import Dict
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Response, status as http_status
 from redis.asyncio import Redis
+import redis.exceptions
 from fastapi_mail import FastMail
 
 from config import settings
@@ -74,14 +75,42 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    @app.get("/api/v1/health", tags=["Global"])
-    async def health_check(redis: Redis = Depends(get_redis_client)):
-        await redis.ping()
-        return {
-            "status": "healthy",
-            "service": settings.APP_NAME,
-            "redis_connection": "ok"
+    @app.get(
+        "/api/v1/health",
+        tags=["Global"],
+        summary="Verifica a saúde do serviço e suas dependências",
+        responses={
+            200: {"description": "Serviço saudável"},
+            503: {"description": "Serviço indisponível devido a falha em dependência"},
+        },
+    )
+    async def health_check(response: Response, redis_client: Redis = Depends(get_redis_client)):
+        checks = []
+        overall_status = "pass"
+
+        try:
+            await redis_client.ping()
+            checks.append({"component_name": "redis", "status": "pass"})
+        except redis.exceptions.ConnectionError as e:
+            overall_status = "fail"
+            error_output = f"Redis connection error: {e}"
+            checks.append({"component_name": "redis", "status": "fail", "output": error_output})
+        except Exception as e:
+            overall_status = "fail"
+            error_output = f"Health check Redis error: {type(e).__name__} - {e}"
+            checks.append({"component_name": "redis", "status": "fail", "output": error_output})
+
+        health_report = {
+            "status": overall_status,
+            "service_id": settings.SERVICE_NAME,
+            "version": settings.API_VERSION,
+            "checks": checks,
         }
+
+        if overall_status == "fail":
+            response.status_code = http_status.HTTP_503_SERVICE_UNAVAILABLE
+
+        return health_report
 
     app.include_router(
         notification_router,

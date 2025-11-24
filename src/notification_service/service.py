@@ -97,7 +97,7 @@ class EventHandler:
         idempotency_key = f"idempotency:{event.message_id}"
         
         if await self.redis_client.exists(idempotency_key):
-            log.info(
+            log.warning(
                 "Duplicate message detected via idempotency check. Skipping.",
                 event_type="MESSAGE_IDEMPOTENCY_DUPLICATE",
                 event_details={"message_id": event.message_id}

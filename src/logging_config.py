@@ -1,40 +1,71 @@
 import logging
 import sys
 import structlog
+import traceback
+from datetime import datetime
 from config import settings
 
-def audit_formatter_processor(logger, method_name: str, event_dict: dict) -> dict:
-    if 'event_type' not in event_dict:
-        return event_dict
-
-    output_dict = {
-        "timestamp": event_dict.pop("timestamp"),
-        "level": event_dict.pop("level").upper(),
-        "service_name": settings.SERVICE_NAME,
-        "correlation_id": event_dict.pop("correlation_id", None),
-        "trigger_type": event_dict.pop("trigger_type", "system_scheduled"),
-        "event_type": event_dict.pop("event_type"),
-        "message": event_dict.pop("event"),
+def ecs_processor(logger, method_name: str, event_dict: dict) -> dict:
+    timestamp = event_dict.pop("timestamp", datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+    
+    level = event_dict.pop("level", method_name).upper()
+    
+    message = event_dict.pop("event", "")
+    
+    correlation_id = event_dict.pop("correlation_id", None)
+    event_type = event_dict.pop("event_type", None)
+    user_id = event_dict.pop("user_id", event_dict.pop("actor_user_id", None))
+    
+    # "level", "service_name", e "event_type" estao duplicados para compatibilidade com o Loki
+    ecs_log = {
+        "@timestamp": timestamp,
+        "log.level": level,
+        "level": level,  # Loki
+        "service.name": settings.SERVICE_NAME,
+        "service_name": settings.SERVICE_NAME,  # Loki
+        "message": message,
+        "trace.correlation_id": correlation_id,
+        "event.type": event_type,
+        "event_type": event_type,  # Loki
+        "user.id": user_id,
+        "error": None,
+        "context": {}
     }
 
-    actor_user_id = event_dict.pop("actor_user_id", None)
-    if actor_user_id:
-        output_dict["actor"] = {
-            "user_id": actor_user_id,
-            "source_ip": event_dict.pop("source_ip", "N/A")
-        }
-    else:
-        output_dict["actor"] = None
+    exc_info = event_dict.pop("exc_info", None)
+    if exc_info:
+        if isinstance(exc_info, bool) and exc_info:
+            import sys
+            exc_info = sys.exc_info()
+        
+        if isinstance(exc_info, tuple) and len(exc_info) == 3:
+            exc_type, exc_value, exc_traceback = exc_info
+            ecs_log["error"] = {
+                "type": exc_type.__name__ if exc_type else None,
+                "message": str(exc_value) if exc_value else None,
+                "stack_trace": "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+            }
+        elif isinstance(exc_info, BaseException):
+            ecs_log["error"] = {
+                "type": type(exc_info).__name__,
+                "message": str(exc_info),
+                "stack_trace": "".join(traceback.format_exception(type(exc_info), exc_info, exc_info.__traceback__))
+            }
     
-    final_details = {}
-    if 'event_details' in event_dict and isinstance(event_dict.get('event_details'), dict):
-        final_details.update(event_dict.pop('event_details'))
+    if not ecs_log["error"] and "error" in event_dict:
+        error_val = event_dict.pop("error")
+        if isinstance(error_val, dict):
+             ecs_log["error"] = error_val
+        else:
+            ecs_log["error"] = {
+                "type": "BusinessError" if level == "WARN" else "Error",
+                "message": str(error_val),
+                "stack_trace": None
+            }
 
-    final_details.update(event_dict)
-
-    output_dict["event_details"] = final_details
+    ecs_log["context"] = event_dict
     
-    return output_dict
+    return ecs_log
 
 
 def setup_logging(log_level: str = "INFO"):
@@ -53,9 +84,9 @@ def setup_logging(log_level: str = "INFO"):
             structlog.contextvars.merge_contextvars,
             structlog.stdlib.add_logger_name,
             structlog.stdlib.add_log_level,
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.format_exc_info,
-            audit_formatter_processor,
+            structlog.processors.TimeStamper(fmt="iso", utc=True),
+            #structlog.processors.format_exc_info,
+            ecs_processor,
             structlog.processors.JSONRenderer(),
         ],
         wrapper_class=structlog.stdlib.BoundLogger,

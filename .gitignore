@@ -159,7 +159,7 @@ dmypy.json
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
 .history
-
+.vscode
 ### Vuejs ###
 # Recommended template: Node.gitignore
 

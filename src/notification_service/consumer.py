@@ -208,7 +208,7 @@ class RabbitMQConsumer:
                 "actor_user_id": event_data.get("recipient", {}).get("user_id")
             }
             if retry_count < self.MAX_RETRIES:
-                log.info(
+                log.warning(
                     "Transient error occurred. Scheduling message for retry.",
                     event_type="MESSAGE_RETRY_SCHEDULED",
                     **log_details,

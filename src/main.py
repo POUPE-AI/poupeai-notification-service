@@ -85,6 +85,7 @@ def create_app() -> FastAPI:
         },
     )
     async def health_check(response: Response, redis_client: Redis = Depends(get_redis_client)):
+        logger = structlog.get_logger(__name__)
         checks = []
         overall_status = "pass"
 
@@ -95,10 +96,20 @@ def create_app() -> FastAPI:
             overall_status = "fail"
             error_output = f"Redis connection error: {e}"
             checks.append({"component_name": "redis", "status": "fail", "output": error_output})
+            logger.error(
+                "Health check falhou: Erro de conexão com Redis",
+                event_type="HEALTH_CHECK_REDIS_FAIL",
+                exc_info=e
+            )
         except Exception as e:
             overall_status = "fail"
             error_output = f"Health check Redis error: {type(e).__name__} - {e}"
             checks.append({"component_name": "redis", "status": "fail", "output": error_output})
+            logger.error(
+                "Health check falhou: Erro inesperado",
+                event_type="HEALTH_CHECK_UNEXPECTED_FAIL",
+                exc_info=e
+            )
 
         health_report = {
             "status": overall_status,

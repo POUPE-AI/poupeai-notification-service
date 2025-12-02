@@ -2,12 +2,14 @@ from pydantic import SecretStr, AmqpDsn, RedisDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
+    model_config = SettingsConfigDict(
+        env_file='.env', env_file_encoding='utf-8', extra='ignore')
 
     # Application
     APP_NAME: str = "Notification Service"
-    SERVICE_NAME: str = "notification-service" 
+    SERVICE_NAME: str = "notification-service"
     API_VERSION: str = "0.0.1"
     DEBUG: bool = True
     HOST: str = "0.0.0.0"
@@ -44,9 +46,11 @@ class Settings(BaseSettings):
     MAIL_SERVER: Optional[str] = None
     MAIL_STARTTLS: bool = True
     MAIL_SSL_TLS: bool = False
+    MAIL_SUPPRESS_SEND: bool = False
 
     @property
     def RABBITMQ_URL(self) -> AmqpDsn:
         return f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASSWORD.get_secret_value()}@{self.RABBITMQ_HOST}:{self.RABBITMQ_PORT}/"
+
 
 settings = Settings()

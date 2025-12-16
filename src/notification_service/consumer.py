@@ -183,7 +183,17 @@ class RabbitMQConsumer:
                     "processed_in_ms": processed_in_ms,
                 }
             )
+            # ---------------------------------------------------------
+            # [MUTANTE M5] - Omissão de Chamada
+            # Objetivo: Simular o esquecimento do 'ack'.
+            # Teste Alvo: test_ut003... (qualquer teste de sucesso verifica se o ack foi chamado)
+            # ---------------------------------------------------------
+            
+            # [CÓDIGO ORIGINAL]
             await message.ack()
+
+            # [CÓDIGO MUTADO - Descomente abaixo e comente o original]
+            # pass # await message.ack()
 
         except (EventTypeValidationError, SchemaValidationError, json.JSONDecodeError, TemplateRenderingError) as e:
             log.error(
@@ -207,7 +217,19 @@ class RabbitMQConsumer:
                 "trigger_type": event_data.get("trigger_type"),
                 "actor_user_id": event_data.get("recipient", {}).get("user_id")
             }
+
+            # ---------------------------------------------------------
+            # [MUTANTE M3] - Operador Relacional
+            # Objetivo: Testar erro de "off-by-one" no retry.
+            # Teste Alvo: test_ut010_max_retries_sends_to_dlq
+            # ---------------------------------------------------------
+
+            # [CÓDIGO ORIGINAL]
             if retry_count < self.MAX_RETRIES:
+            
+            # [CÓDIGO MUTADO - Descomente abaixo e comente o original]
+            # if retry_count <= self.MAX_RETRIES:
+
                 log.warning(
                     "Transient error occurred. Scheduling message for retry.",
                     event_type="MESSAGE_RETRY_SCHEDULED",
@@ -220,7 +242,18 @@ class RabbitMQConsumer:
                     exc_info=e
                 )
                 republished_message = self._republish_message(message)
+
+                # ---------------------------------------------------------
+                # [MUTANTE M4] - Troca de Variável
+                # Objetivo: Simular envio para a exchange errada (DLQ em vez de Retry).
+                # Teste Alvo: test_ut003_transient_error_schedules_retry
+                # ---------------------------------------------------------
+
+                # [CÓDIGO ORIGINAL]
                 await self.retry_exchange.publish(republished_message, routing_key=settings.RABBITMQ_ROUTING_KEY)
+                
+                # [CÓDIGO MUTADO - Descomente abaixo e comente o original]
+                # await self.dlx_exchange.publish(republished_message, routing_key=settings.RABBITMQ_ROUTING_KEY)
             else:
                 log.error(
                     f"Max retries ({self.MAX_RETRIES}) reached. Moving message to DLQ.",

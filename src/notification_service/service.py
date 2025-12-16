@@ -136,7 +136,7 @@ class EventHandler:
         await handler(event=event, correlation_id=correlation_id, retry_count=retry_count)
 
         # ---------------------------------------------------------
-        # [MUTANTE 02] - Alteração de Constante (TTL)
+        # [MUTANTE M2] - Alteração de Constante (TTL)
         # Objetivo: Testar se a suíte valida os parâmetros exatos de persistência.
         # Teste Alvo: test_ut005_ut006_ut007_happy_paths
         # ---------------------------------------------------------

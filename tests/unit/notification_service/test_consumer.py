@@ -33,6 +33,30 @@ def consumer_instance(mock_event_handler, mock_aio_pika_channel):
 
 class TestRabbitMQConsumer:
 
+    async def test_ut011_happy_path_acks_message(
+        self, consumer_instance, aio_pika_message_factory, event_data_factory
+    ):
+        """
+        Tests UT-011: Verifies that a message processed successfully (Happy Path)
+        is acknowledged.
+        
+        This test kills Mutant 05 (Omission of ack in success flow).
+        """
+        consumer_instance.event_handler.process_event.return_value = True
+        
+        event_data = event_data_factory()
+        message = aio_pika_message_factory(
+            body=json.dumps(event_data).encode('utf-8')
+        )
+
+        await consumer_instance._on_message(message)
+
+        consumer_instance.event_handler.process_event.assert_awaited_once()
+        message.ack.assert_awaited_once()
+        
+        consumer_instance.retry_exchange.publish.assert_not_called()
+        consumer_instance.dlx_exchange.publish.assert_not_called()
+
     async def test_ut003_transient_error_schedules_retry(
         self, consumer_instance, aio_pika_message_factory, event_data_factory
     ):

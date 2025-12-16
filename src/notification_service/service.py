@@ -104,7 +104,17 @@ class EventHandler:
 
         idempotency_key = f"idempotency:{event.message_id}"
 
+        # ---------------------------------------------------------
+        # [MUTANTE M1] - Operador Lógico (Negação de Condição)
+        # Objetivo: Testar se a suíte detecta falha na verificação de duplicidade.
+        # Teste Alvo: test_ut001_idempotency_skips_duplicate_message
+        # ---------------------------------------------------------
+        
+        # [CÓDIGO ORIGINAL]
         if await self.redis_client.exists(idempotency_key):
+        
+        # [CÓDIGO MUTADO - Descomente abaixo e comente o original para ativar]
+        # if not await self.redis_client.exists(idempotency_key): 
             log.warning(
                 "Duplicate message detected via idempotency check. Skipping.",
                 event_type="MESSAGE_IDEMPOTENCY_DUPLICATE",
@@ -125,7 +135,18 @@ class EventHandler:
 
         await handler(event=event, correlation_id=correlation_id, retry_count=retry_count)
 
+        # ---------------------------------------------------------
+        # [MUTANTE 02] - Alteração de Constante (TTL)
+        # Objetivo: Testar se a suíte valida os parâmetros exatos de persistência.
+        # Teste Alvo: test_ut005_ut006_ut007_happy_paths
+        # ---------------------------------------------------------
+
+        # [CÓDIGO ORIGINAL]
         await self.redis_client.set(idempotency_key, "processed", ex=86400)
+
+        # [CÓDIGO MUTADO - Descomente abaixo e comente o original para ativar]
+        # await self.redis_client.set(idempotency_key, "processed", ex=10) 
+        
         log.info(
             "Message marked as processed in Redis via idempotency key.",
             event_type="MESSAGE_IDEMPOTENCY_PROCESSED",

@@ -144,10 +144,10 @@ def get_mail_config(settings: Settings = Depends(lambda: app_settings)) -> Conne
         MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
         MAIL_PORT=settings.MAIL_PORT,
         MAIL_SERVER=settings.MAIL_SERVER,
-        MAIL_STARTTLS=settings.MAIL_STARTTLS,
-        MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
+        MAIL_STARTTLS=bool(settings.MAIL_STARTTLS),
+        MAIL_SSL_TLS=bool(settings.MAIL_SSL_TLS),
         TEMPLATE_FOLDER=Path(__file__).parent / 'templates',
-        USE_CREDENTIALS=True,
+        USE_CREDENTIALS=bool(settings.USE_CREDENTIALS),
         VALIDATE_CERTS=False,
         SUPPRESS_SEND=settings.MAIL_SUPPRESS_SEND
     )

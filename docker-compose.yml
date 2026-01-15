@@ -50,6 +50,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog-local
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    networks:
+      - poupeai-network
 
 networks:
   poupeai-network:

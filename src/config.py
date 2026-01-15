@@ -44,9 +44,10 @@ class Settings(BaseSettings):
     MAIL_FROM_NAME: Optional[str] = None
     MAIL_PORT: Optional[int] = None
     MAIL_SERVER: Optional[str] = None
-    MAIL_STARTTLS: bool = True
+    MAIL_STARTTLS: bool = False
     MAIL_SSL_TLS: bool = False
     MAIL_SUPPRESS_SEND: bool = False
+    USE_CREDENTIALS: bool = False
 
     @property
     def RABBITMQ_URL(self) -> AmqpDsn:

@@ -64,6 +64,8 @@ class EventHandler:
             "INVOICE_DUE_SOON": self._handle_invoice_due_soon,
             "INVOICE_OVERDUE": self._handle_invoice_overdue,
             "PROFILE_DELETION_SCHEDULED": self._handle_profile_deletion,
+            "STATEMENT_PROCESSING_COMPLETED": self._handle_statement_status,
+            "STATEMENT_PROCESSING_FAILED": self._handle_statement_status,
         }
 
     async def _handle_invoice_due_soon(self, event: NotificationEventEnvelope, correlation_id: str, **_):
@@ -89,6 +91,21 @@ class EventHandler:
             subject="Poupe.AI - Confirmação de Agendamento de Desativação de Conta",
             recipient=event.recipient.email,
             template_name="profile_deletion_scheduled.html",
+            body_context=event.model_dump(),
+            correlation_id=correlation_id
+        )
+
+    async def _handle_statement_status(self, event: NotificationEventEnvelope, correlation_id: str, **_):
+        payload = event.payload
+        if payload.status == "SUCCESS":
+            subject = "Poupe.AI - Seu extrato foi processado com sucesso!"
+        else:
+            subject = "Poupe.AI - Erro no processamento do seu extrato."
+        
+        await self.email_service.send_email(
+            subject=subject,
+            recipient=event.recipient.email,
+            template_name="statement_status.html",
             body_context=event.model_dump(),
             correlation_id=correlation_id
         )

@@ -15,12 +15,14 @@ from .schemas import NotificationEventEnvelope
 
 logger = structlog.get_logger(__name__)
 
+
 class EmailService:
     def __init__(self, mailer: FastMail):
         self.mailer = mailer
 
     async def send_email(self, subject: str, recipient: str, template_name: str, body_context: dict, correlation_id: Optional[str] = None):
-        log = logger.bind(correlation_id=correlation_id, recipient=recipient, subject=subject, template=template_name)
+        log = logger.bind(correlation_id=correlation_id,
+                          recipient=recipient, subject=subject, template=template_name)
 
         message = MessageSchema(
             subject=subject,
@@ -29,17 +31,20 @@ class EmailService:
             subtype=MessageType.html
         )
         try:
-            log.info("Starting email delivery", event_type="EMAIL_DELIVERY_START")
+            log.info("Starting email delivery",
+                     event_type="EMAIL_DELIVERY_START")
             await self.mailer.send_message(message, template_name=template_name)
-            log.info("Email sent successfully", event_type="EMAIL_SENT_SUCCESSFULLY")
+            log.info("Email sent successfully",
+                     event_type="EMAIL_SENT_SUCCESSFULLY")
         except ConnectionErrors as e:
             log.error(
-                "Failed to connect to email server", 
+                "Failed to connect to email server",
                 event_type="EMAIL_SEND_FAILED_CONNECTION",
                 error=str(e),
                 exc_info=e
             )
-            raise TransientProcessingError(f"Failed to connect to the email server: {e}") from e
+            raise TransientProcessingError(
+                f"Failed to connect to the email server: {e}") from e
         except Exception as e:
             log.error(
                 "Failed to render email template",
@@ -47,7 +52,9 @@ class EmailService:
                 error=str(e),
                 exc_info=e
             )
-            raise TemplateRenderingError(f"Failed to render template {template_name}: {e}") from e
+            raise TemplateRenderingError(
+                f"Failed to render template {template_name}: {e}") from e
+
 
 class EventHandler:
     def __init__(self, redis_client: Redis, email_service: EmailService):
@@ -57,6 +64,8 @@ class EventHandler:
             "INVOICE_DUE_SOON": self._handle_invoice_due_soon,
             "INVOICE_OVERDUE": self._handle_invoice_overdue,
             "PROFILE_DELETION_SCHEDULED": self._handle_profile_deletion,
+            "STATEMENT_PROCESSING_COMPLETED": self._handle_statement_status,
+            "STATEMENT_PROCESSING_FAILED": self._handle_statement_status,
         }
 
     async def _handle_invoice_due_soon(self, event: NotificationEventEnvelope, correlation_id: str, **_):
@@ -86,8 +95,24 @@ class EventHandler:
             correlation_id=correlation_id
         )
 
+    async def _handle_statement_status(self, event: NotificationEventEnvelope, correlation_id: str, **_):
+        payload = event.payload
+        if payload.status == "SUCCESS":
+            subject = "Poupe.AI - Seu extrato foi processado com sucesso!"
+        else:
+            subject = "Poupe.AI - Erro no processamento do seu extrato."
+        
+        await self.email_service.send_email(
+            subject=subject,
+            recipient=event.recipient.email,
+            template_name="statement_status.html",
+            body_context=event.model_dump(),
+            correlation_id=correlation_id
+        )
+
     async def process_event(self, event_data: dict, correlation_id: Optional[str] = None, retry_count: int = 0) -> bool:
-        log = logger.bind(correlation_id=correlation_id, event_type=event_data.get("event_type", "unknown"), retry_count=retry_count)
+        log = logger.bind(correlation_id=correlation_id, event_type=event_data.get(
+            "event_type", "unknown"), retry_count=retry_count)
 
         try:
             event = NotificationEventEnvelope.model_validate(event_data)
@@ -95,7 +120,7 @@ class EventHandler:
             raise SchemaValidationError(f"Invalid message schema: {e}")
 
         idempotency_key = f"idempotency:{event.message_id}"
-        
+
         if await self.redis_client.exists(idempotency_key):
             log.warning(
                 "Duplicate message detected via idempotency check. Skipping.",
@@ -111,37 +136,44 @@ class EventHandler:
         log.info(
             "Processing event with handler",
             event_type="EVENT_PROCESSING_START",
-            event_details={"handler_name": handler.__name__, "recipient_email": event.recipient.email}
+            event_details={"handler_name": handler.__name__,
+                           "recipient_email": event.recipient.email}
         )
-        
+
         await handler(event=event, correlation_id=correlation_id, retry_count=retry_count)
 
         await self.redis_client.set(idempotency_key, "processed", ex=86400)
         log.info(
             "Message marked as processed in Redis via idempotency key.",
             event_type="MESSAGE_IDEMPOTENCY_PROCESSED",
-            event_details={"message_id": event.message_id, "ttl_seconds": 86400}
+            event_details={"message_id": event.message_id,
+                           "ttl_seconds": 86400}
         )
         return True
+
 
 def get_mail_config(settings: Settings = Depends(lambda: app_settings)) -> ConnectionConfig:
     return ConnectionConfig(
         MAIL_USERNAME=settings.MAIL_USERNAME,
-        MAIL_PASSWORD=settings.MAIL_PASSWORD.get_secret_value() if settings.MAIL_PASSWORD else None,
+        MAIL_PASSWORD=settings.MAIL_PASSWORD.get_secret_value(
+        ) if settings.MAIL_PASSWORD else None,
         MAIL_FROM=settings.MAIL_FROM,
         MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
         MAIL_PORT=settings.MAIL_PORT,
         MAIL_SERVER=settings.MAIL_SERVER,
-        MAIL_STARTTLS=settings.MAIL_STARTTLS,
-        MAIL_SSL_TLS=settings.MAIL_SSL_TLS,
+        MAIL_STARTTLS=bool(settings.MAIL_STARTTLS),
+        MAIL_SSL_TLS=bool(settings.MAIL_SSL_TLS),
         TEMPLATE_FOLDER=Path(__file__).parent / 'templates',
-        USE_CREDENTIALS=True,
-        VALIDATE_CERTS=False
+        USE_CREDENTIALS=bool(settings.USE_CREDENTIALS),
+        VALIDATE_CERTS=False,
+        SUPPRESS_SEND=settings.MAIL_SUPPRESS_SEND
     )
+
 
 def get_email_service(mail_config: ConnectionConfig = Depends(get_mail_config)) -> EmailService:
     mailer = FastMail(mail_config)
     return EmailService(mailer)
+
 
 def get_event_handler(
     redis_client: Redis = Depends(get_redis_client),

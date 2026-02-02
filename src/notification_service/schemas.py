@@ -32,6 +32,20 @@ class ProfileDeletionScheduledPayload(BaseModel):
     deletion_scheduled_at: datetime
     reactivate_account_deep_link: str
 
+class StatementProcessingCompletedPayload(BaseModel):
+    """Payload for STATEMENT_PROCESSING_COMPLETED event."""
+    status: str
+    file_name: str
+    account_name: str
+
+class StatementProcessingFailedPayload(BaseModel):
+    """Payload for STATEMENT_PROCESSING_FAILED event."""
+    status: str
+    file_name: str
+    account_name: str
+    error_code: str
+    error_message: str
+
 class NotificationEventEnvelope(BaseModel):
     """
     Schema of the main message envelope, validating the complete structure.
@@ -44,5 +58,7 @@ class NotificationEventEnvelope(BaseModel):
     payload: Union[
         InvoiceDueSoonPayload,
         InvoiceOverduePayload,
-        ProfileDeletionScheduledPayload
+        ProfileDeletionScheduledPayload,
+        StatementProcessingCompletedPayload,
+        StatementProcessingFailedPayload
     ] = Field(...)

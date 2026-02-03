@@ -8,6 +8,7 @@ from aio_pika.abc import AbstractIncomingMessage
 from config import settings
 from .exceptions import EventTypeValidationError, SchemaValidationError, TemplateRenderingError, TransientProcessingError
 from .service import EventHandler
+from metrics import MESSAGES_RECEIVED, MESSAGES_PROCESSED, MESSAGE_PROCESSING_TIME
 
 from datetime import datetime
 
@@ -145,11 +146,18 @@ class RabbitMQConsumer:
         correlation_id = message.correlation_id or str(uuid4())
         log = logger.bind(correlation_id=correlation_id)
         event_data = {}
+        event_type_label = "unknown"
+
+        MESSAGES_RECEIVED.labels(
+            queue=self.main_queue.name,
+            routing_key=message.routing_key
+        ).inc()
     
         try:
             event_data = json.loads(message.body.decode())
             retry_count = message.headers.get("x-death", [{}])[0].get("count", 0)
-        
+            event_type_label = event_data.get("event_type", "unknown")
+
             log.info(
                 "Message successfully received and deserialized",
                 event_type="MESSAGE_RECEIVED",
@@ -163,7 +171,9 @@ class RabbitMQConsumer:
                 }
             )
         
-            await self.event_handler.process_event(event_data, correlation_id)
+            with MESSAGE_PROCESSING_TIME.labels(event_type=event_type_label).time():
+                await self.event_handler.process_event(event_data, correlation_id)
+            
             processed_in_ms = None
             event_ts_str = event_data.get("timestamp")
             if event_ts_str:
@@ -183,9 +193,14 @@ class RabbitMQConsumer:
                     "processed_in_ms": processed_in_ms,
                 }
             )
+
+            MESSAGES_PROCESSED.labels(event_type=event_type_label, status="success").inc()
+
             await message.ack()
 
         except (EventTypeValidationError, SchemaValidationError, json.JSONDecodeError, TemplateRenderingError) as e:
+            MESSAGES_PROCESSED.labels(event_type=event_type_label, status="dlq_schema_error").inc()
+
             log.error(
                 "Unrecoverable error processing message. Moving to DLQ.",
                 event_type="MESSAGE_SENT_TO_DLQ",
@@ -208,6 +223,8 @@ class RabbitMQConsumer:
                 "actor_user_id": event_data.get("recipient", {}).get("user_id")
             }
             if retry_count < self.MAX_RETRIES:
+                MESSAGES_PROCESSED.labels(event_type=event_type_label, status="retry_scheduled").inc()
+
                 log.warning(
                     "Transient error occurred. Scheduling message for retry.",
                     event_type="MESSAGE_RETRY_SCHEDULED",
@@ -222,6 +239,8 @@ class RabbitMQConsumer:
                 republished_message = self._republish_message(message)
                 await self.retry_exchange.publish(republished_message, routing_key=settings.RABBITMQ_ROUTING_KEY)
             else:
+                MESSAGES_PROCESSED.labels(event_type=event_type_label, status="dlq_max_retries").inc()
+
                 log.error(
                     f"Max retries ({self.MAX_RETRIES}) reached. Moving message to DLQ.",
                     event_type="MESSAGE_SENT_TO_DLQ_MAX_RETRIES",
@@ -234,6 +253,10 @@ class RabbitMQConsumer:
                 republished_message = self._republish_message(message)
                 await self.dlx_exchange.publish(republished_message, routing_key=settings.RABBITMQ_ROUTING_KEY)
             await message.ack()
+        
+        except Exception as e:
+            MESSAGES_PROCESSED.labels(event_type=event_type_label, status="error").inc()
+            raise e
     
     async def run(self):
         try:

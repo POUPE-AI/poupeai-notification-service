@@ -7,6 +7,7 @@ from fastapi import FastAPI, Depends, Response, status as http_status
 from redis.asyncio import Redis
 import redis.exceptions
 from fastapi_mail import FastMail
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from config import settings
 from redis_client import init_redis_pool, close_redis_pool, get_redis_client
@@ -74,6 +75,8 @@ def create_app() -> FastAPI:
         docs_url="/api/v1/docs",
         lifespan=lifespan,
     )
+
+    Instrumentator().instrument(app).expose(app)
 
     @app.get(
         "/api/v1/health",

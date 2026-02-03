@@ -12,6 +12,7 @@ from config import Settings, settings as app_settings
 from redis_client import get_redis_client
 from .exceptions import EventTypeValidationError, SchemaValidationError, TransientProcessingError, TemplateRenderingError
 from .schemas import NotificationEventEnvelope
+from metrics import EMAILS_SENT
 
 logger = structlog.get_logger(__name__)
 
@@ -34,9 +35,14 @@ class EmailService:
             log.info("Starting email delivery",
                      event_type="EMAIL_DELIVERY_START")
             await self.mailer.send_message(message, template_name=template_name)
+            
+            EMAILS_SENT.labels(template=template_name, status="success").inc()
+            
             log.info("Email sent successfully",
                      event_type="EMAIL_SENT_SUCCESSFULLY")
         except ConnectionErrors as e:
+            EMAILS_SENT.labels(template=template_name, status="failed").inc()
+
             log.error(
                 "Failed to connect to email server",
                 event_type="EMAIL_SEND_FAILED_CONNECTION",
@@ -46,6 +52,8 @@ class EmailService:
             raise TransientProcessingError(
                 f"Failed to connect to the email server: {e}") from e
         except Exception as e:
+            EMAILS_SENT.labels(template=template_name, status="failed").inc()
+            
             log.error(
                 "Failed to render email template",
                 event_type="EMAIL_SEND_FAILED_RENDER",

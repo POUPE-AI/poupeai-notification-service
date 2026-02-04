@@ -19,86 +19,56 @@ jobs:
     name: Run Unit & Integration Tests
     runs-on: ubuntu-latest
     
-    services:
-      redis:
-        image: redis:alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      rabbitmq:
-        image: rabbitmq:3.12-management
-        ports:
-          - 5672:5672
-          - 15672:15672
-        env:
-          RABBITMQ_DEFAULT_USER: user
-          RABBITMQ_DEFAULT_PASS: password
-        options: >-
-          --health-cmd "rabbitmq-diagnostics -q ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      mailhog:
-        image: mailhog/mailhog
-        ports:
-          - 1025:1025
-          - 8025:8025
-
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      - name: Configurar Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Instalar dependências
+      - name: Criar arquivo .env para Teste
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements/base.txt
-          pip install pytest pytest-asyncio pytest-cov httpx aio-pika redis
-
-      - name: Rodar Testes
-        env:
-          PYTHONPATH: ./src
-          APP_NAME: "Notification Service CI"
+          echo "APP_NAME=Notification Service CI" >> .env
+          echo "API_VERSION=0.0.1-test" >> .env
+          echo "DEBUG=True" >> .env
           
-          RABBITMQ_HOST: localhost
-          RABBITMQ_PORT: 5672
-          RABBITMQ_USER: user
-          RABBITMQ_PASSWORD: password
-          RABBITMQ_URL: amqp://user:password@localhost:5672/
+          # --- RabbitMQ ---
+          echo "RABBITMQ_USER=user" >> .env
+          echo "RABBITMQ_PASSWORD=password" >> .env
+          echo "RABBITMQ_HOST=rabbitmq" >> .env
+          echo "RABBITMQ_PORT=5672" >> .env
+          echo "RABBITMQ_MAX_RETRIES=3" >> .env
+          echo "RABBITMQ_EXCHANGE_MAIN=notification_exchange" >> .env
+          echo "RABBITMQ_EXCHANGE_RETRY=notification_exchange.retry" >> .env
+          echo "RABBITMQ_EXCHANGE_DLQ=notification_exchange.dlq" >> .env
+          echo "RABBITMQ_QUEUE_MAIN=notification_events" >> .env
+          echo "RABBITMQ_QUEUE_RETRY=notification_events.retry" >> .env
+          echo "RABBITMQ_QUEUE_DLQ=notification_events.dlq" >> .env
+          echo "RABBITMQ_ROUTING_KEY=notification.event" >> .env
+          echo "RABBITMQ_RETRY_DELAY_MS=1000" >> .env
           
-          RABBITMQ_EXCHANGE_MAIN: notification_exchange
-          RABBITMQ_EXCHANGE_RETRY: notification_exchange.retry
-          RABBITMQ_EXCHANGE_DLQ: notification_exchange.dlq
-          RABBITMQ_QUEUE_MAIN: notification_events
-          RABBITMQ_QUEUE_RETRY: notification_events.retry
-          RABBITMQ_QUEUE_DLQ: notification_events.dlq
-          RABBITMQ_ROUTING_KEY: notification.event
-          RABBITMQ_RETRY_DELAY_MS: 100
-          RABBITMQ_MAX_RETRIES: 3
-
-          REDIS_URL: redis://localhost:6379/0
-
-          MAIL_SERVER: localhost
-          MAIL_PORT: 1025
-          MAIL_USERNAME: null
-          MAIL_PASSWORD: null
-          MAIL_FROM: "poupeai.notificacoes@gmail.com"
-          USE_CREDENTIALS: "False"
+          # --- Redis ---
+          echo "REDIS_URL=redis://redis:6379/0" >> .env
           
+          # --- Email (Mailhog) ---
+          echo "MAIL_SERVER=mailhog" >> .env
+          echo "MAIL_PORT=1025" >> .env
+          echo "MAIL_USERNAME=" >> .env
+          echo "MAIL_PASSWORD=" >> .env
+          echo "MAIL_FROM=test@poupe.ai" >> .env
+          echo "USE_CREDENTIALS=False" >> .env
+
+      - name: Subir Ambiente (Docker Compose)
         run: |
-          # Roda unitários E integração juntos
-          # O -v ajuda a ver qual passou/falhou nos logs do GitHub
-          pytest tests/ -v
+          docker compose up -d --build --wait
+
+      - name: Verificar Logs (Debug)
+        run: docker compose logs --tail=50 app
+
+      - name: Rodar Testes (Unitários e Integração)
+        run: |
+          docker compose exec -T app pytest tests/ -v
+
+      - name: Derrubar Ambiente
+        if: always()
+        run: docker compose down -v
 
   build_and_push:
     needs: test

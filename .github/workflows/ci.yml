@@ -45,8 +45,8 @@ jobs:
           echo "REDIS_URL=redis://redis:6379/0" >> .env
           echo "MAIL_SERVER=mailhog" >> .env
           echo "MAIL_PORT=1025" >> .env
-          echo "MAIL_USERNAME=" >> .env
-          echo "MAIL_PASSWORD=" >> .env
+          echo "MAIL_USERNAME=null" >> .env
+          echo "MAIL_PASSWORD=null" >> .env
           echo "MAIL_FROM=test@poupe.ai" >> .env
           echo "USE_CREDENTIALS=False" >> .env
 

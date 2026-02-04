@@ -1,12 +1,14 @@
-name: CI/CD para Poupe.AI Notification Service
+name: CI/CD - Poupe.AI Notification Service
 
 on:
   push:
     branches:
       - main
+      - develop
   pull_request:
     branches:
       - main
+      - develop
 
 env:
   IMAGE_NAME: franciscopaulinoq/poupeai-notification-service
@@ -14,7 +16,40 @@ env:
 
 jobs:
   test:
+    name: Run Unit & Integration Tests
     runs-on: ubuntu-latest
+    
+    services:
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      rabbitmq:
+        image: rabbitmq:3.12-management
+        ports:
+          - 5672:5672
+          - 15672:15672
+        env:
+          RABBITMQ_DEFAULT_USER: user
+          RABBITMQ_DEFAULT_PASS: password
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      mailhog:
+        image: mailhog/mailhog
+        ports:
+          - 1025:1025
+          - 8025:8025
+
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
@@ -28,29 +63,42 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements/base.txt
-          # Garantindo que libs de teste estejam instaladas
           pip install pytest pytest-asyncio pytest-cov httpx aio-pika redis
 
-      - name: Rodar Testes Unitários
+      - name: Rodar Testes
         env:
           PYTHONPATH: ./src
-          APP_NAME: "Notification Service Test"
-          RABBITMQ_USER: user
-          RABBITMQ_PASSWORD: password
+          APP_NAME: "Notification Service CI"
+          
           RABBITMQ_HOST: localhost
           RABBITMQ_PORT: 5672
+          RABBITMQ_USER: user
+          RABBITMQ_PASSWORD: password
+          RABBITMQ_URL: amqp://user:password@localhost:5672/
+          
+          RABBITMQ_EXCHANGE_MAIN: notification_exchange
+          RABBITMQ_EXCHANGE_RETRY: notification_exchange.retry
+          RABBITMQ_EXCHANGE_DLQ: notification_exchange.dlq
+          RABBITMQ_QUEUE_MAIN: notification_events
+          RABBITMQ_QUEUE_RETRY: notification_events.retry
+          RABBITMQ_QUEUE_DLQ: notification_events.dlq
+          RABBITMQ_ROUTING_KEY: notification.event
+          RABBITMQ_RETRY_DELAY_MS: 100
           RABBITMQ_MAX_RETRIES: 3
-          RABBITMQ_EXCHANGE_MAIN: test_exchange
-          RABBITMQ_EXCHANGE_RETRY: test_exchange.retry
-          RABBITMQ_EXCHANGE_DLQ: test_exchange.dlq
-          RABBITMQ_QUEUE_MAIN: test_queue
-          RABBITMQ_QUEUE_RETRY: test_queue.retry
-          RABBITMQ_QUEUE_DLQ: test_queue.dlq
-          RABBITMQ_ROUTING_KEY: test_key
-          RABBITMQ_RETRY_DELAY_MS: 10000
+
           REDIS_URL: redis://localhost:6379/0
+
+          MAIL_SERVER: localhost
+          MAIL_PORT: 1025
+          MAIL_USERNAME: null
+          MAIL_PASSWORD: null
+          MAIL_FROM: "poupeai.notificacoes@gmail.com"
+          USE_CREDENTIALS: "False"
+          
         run: |
-          pytest tests/unit/
+          # Roda unitários E integração juntos
+          # O -v ajuda a ver qual passou/falhou nos logs do GitHub
+          pytest tests/ -v
 
   build_and_push:
     needs: test

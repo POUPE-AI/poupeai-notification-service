@@ -16,7 +16,7 @@ env:
 
 jobs:
   test:
-    name: Run Unit & Integration Tests
+    name: Run Tests via Docker Compose
     runs-on: ubuntu-latest
     
     steps:
@@ -28,8 +28,6 @@ jobs:
           echo "APP_NAME=Notification Service CI" >> .env
           echo "API_VERSION=0.0.1-test" >> .env
           echo "DEBUG=True" >> .env
-          
-          # --- RabbitMQ ---
           echo "RABBITMQ_USER=user" >> .env
           echo "RABBITMQ_PASSWORD=password" >> .env
           echo "RABBITMQ_HOST=rabbitmq" >> .env
@@ -42,12 +40,9 @@ jobs:
           echo "RABBITMQ_QUEUE_RETRY=notification_events.retry" >> .env
           echo "RABBITMQ_QUEUE_DLQ=notification_events.dlq" >> .env
           echo "RABBITMQ_ROUTING_KEY=notification.event" >> .env
-          echo "RABBITMQ_RETRY_DELAY_MS=1000" >> .env
-          
-          # --- Redis ---
+          # Retry rápido para teste
+          echo "RABBITMQ_RETRY_DELAY_MS=100" >> .env
           echo "REDIS_URL=redis://redis:6379/0" >> .env
-          
-          # --- Email (Mailhog) ---
           echo "MAIL_SERVER=mailhog" >> .env
           echo "MAIL_PORT=1025" >> .env
           echo "MAIL_USERNAME=" >> .env
@@ -55,16 +50,23 @@ jobs:
           echo "MAIL_FROM=test@poupe.ai" >> .env
           echo "USE_CREDENTIALS=False" >> .env
 
-      - name: Subir Ambiente (Docker Compose)
+      - name: Subir Ambiente
         run: |
           docker compose up -d --build --wait
 
-      - name: Verificar Logs (Debug)
-        run: docker compose logs --tail=50 app
+      - name: Aguardar Aplicação (Health Check Manual)
+        run: |
+          echo "Aguardando a aplicação iniciar na porta 8001..."
+          timeout 60s bash -c 'until curl -s http://localhost:8001/api/v1/health | grep "pass"; do echo "Esperando app..."; sleep 2; done'
+          echo "Aplicação está pronta!"
 
-      - name: Rodar Testes (Unitários e Integração)
+      - name: Rodar Testes
         run: |
           docker compose exec -T app pytest tests/ -v
+
+      - name: Logs em caso de falha
+        if: failure()
+        run: docker compose logs app
 
       - name: Derrubar Ambiente
         if: always()
@@ -73,10 +75,10 @@ jobs:
   build_and_push:
     needs: test
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
-
       - name: Login no Docker Hub
         uses: docker/login-action@v3
         with:
